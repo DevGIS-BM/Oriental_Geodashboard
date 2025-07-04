@@ -1,10 +1,39 @@
 import streamlit as st
 from auth.db_utils import verify_user
 from streamlit import switch_page
+import geopandas as gpd
+from pathlib import Path
 
 
 # --- Configuration ---
 st.set_page_config(page_title="GeoDashboard", layout="wide", initial_sidebar_state="collapsed")
+
+
+# # --- Load data ---
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+geojson_dir = BASE_DIR / "shared_data" / "geojson_files"
+
+province_path = geojson_dir / "prov.geojson"
+bv_path = geojson_dir / "bv_prov.geojson"
+douars_path = geojson_dir / "douars.geojson"
+
+@st.cache_data
+def load_gdf(path):
+    return gpd.read_file(path)
+
+# Lostad and cache data in session state
+if "gdf_province" not in st.session_state:
+    st.session_state["gdf_province"] = load_gdf(province_path)
+    
+if "gdf_bv" not in st.session_state:
+    st.session_state["gdf_bv"] = load_gdf(bv_path)
+
+
+if "gdf_douars" not in st.session_state:
+    st.session_state["gdf_douars"] = load_gdf(douars_path)
+
+
 
 st.markdown('<link href="styles.css" rel="stylesheet">', unsafe_allow_html=True)
 
@@ -77,15 +106,17 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
         st.markdown("---")
     
     Home = st.Page("pages/home.py", title="Home", icon="🖥️")
-    dashboard = st.Page("pages/dashboard.py", title="Dashboard",icon="🗺️")
+    dashboard1 = st.Page("pages/dashboard1.py", title="General",icon="🗺️")
+    dashboard_bv = st.Page("pages/dashboard_bv.py", title="Bureaux de vote",icon="🗳️")
     explore =st.Page("pages/explore.py", title="Explore data",icon="📊")
     search = st.Page("pages/search.py", title="Search",icon="🔍")
     settings = st.Page("pages/settings.py", title="Settings",icon="⚙️")
     nav = st.navigation({
         
         "Client Portal": [Home],
-        "Main": [dashboard,explore],
-        "Tools": [search,settings],
+        "Dashboard": [dashboard1,dashboard_bv],
+        "Queries": [explore,search],
+        "Tools": [settings],
 
     })
     nav.run()

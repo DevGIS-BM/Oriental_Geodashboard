@@ -9,7 +9,7 @@ import pandas as pd
 import altair as alt
 import plotly.express as px
 import plotly.graph_objects as go
-from streamlit_plotly_events import plotly_events
+
 
 if 'selected_bv' not in st.session_state:
     st.session_state.selected_bv = None
@@ -24,19 +24,9 @@ st.title("🗺️ Oriental INDH Dashboard")
 
 alt.themes.enable("dark")
 
-# --- Load GeoJSON data from shared folder ---
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-geojson_dir = BASE_DIR / "shared_data" / "geojson_files"
-
-province_path = geojson_dir / "prov.geojson"
-bv_path = geojson_dir / "bv_prov.geojson"
-midar_path = geojson_dir / "commune_midar.geojson"
-
-# Load GeoDataFrames
-gdf_province = gpd.read_file(province_path)
-gdf_bv = gpd.read_file(bv_path)
-gdf_midar = gpd.read_file(midar_path)
-
+gdf_province = st.session_state["gdf_province"]
+# gdf_bv = st.session_state["gdf_bv"]
+gdf_douars = st.session_state["gdf_douars"]
 
 def make_bar(input_df, input_x, input_theme, input_color_theme):
     bar = alt.Chart(input_df).mark_bar().encode(
@@ -70,7 +60,6 @@ def make_choropleth(input_df, input_id, input_column, input_color_theme):
         labels={input_column: input_column}
     )
 
-    # choropleth.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     return choropleth
 
 # Calculation top_bottom_two_with_theme
@@ -149,56 +138,54 @@ with col[0]:
 with col[1]:
     st.markdown('#### Total Population')
     
+    
+    # Prepare hover text with multiple lines (HTML-like tooltips)
+    # gdf_bv["hover_text"] = (
+    #     "N°:  " + gdf_bv["N°_Bureau"].astype(str) + "<br>" +
+    #     "Nom:  " + gdf_bv["Nom_du__bu"].astype(str) + "<br>"  
+    # )     
+    
+    # choropleth = make_choropleth(gdf_province, 'commune_fr', selected_theme, selected_color_theme)
+    # # Add electoral office points to the same map
+    # choropleth.add_trace(go.Scattermapbox(
+    #     lat=gdf_bv.geometry.y,
+    #     lon=gdf_bv.geometry.x,
+    #     mode='markers',
+    #     marker=go.scattermapbox.Marker(
+    #         size=9,
+    #         color='black',
+    #         symbol='circle'
+    #     ),
+    #     name='Bureau',
+    #     text=gdf_bv["hover_text"],  # or any column you want in the hover tooltip
+    # ))    
+    
+    gdf_douars["hover_text"] = (
+        "Douar:  " + gdf_douars["Douar"].astype(str) + "<br>" +
+        "Population:  " + gdf_douars["Popul"].astype(str) + "<br>"  
+    )     
+    
     choropleth = make_choropleth(gdf_province, 'commune_fr', selected_theme, selected_color_theme)
     # Add electoral office points to the same map
     choropleth.add_trace(go.Scattermapbox(
-        lat=gdf_bv.geometry.y,
-        lon=gdf_bv.geometry.x,
+        lat=gdf_douars.geometry.y,
+        lon=gdf_douars.geometry.x,
         mode='markers',
         marker=go.scattermapbox.Marker(
             size=9,
             color='black',
             symbol='circle'
         ),
-        text=gdf_bv['Commune'],  # or any column you want in the hover tooltip
-        name='Bureaux de vote'
-    ))    
-    
+        name='Douar',
+        text=gdf_douars["hover_text"],  # or any column you want in the hover tooltip
+    ))  
     
     st.plotly_chart(choropleth, use_container_width=True)
     
     bar= make_bar(df_sorted, 'commune_fr', selected_theme, selected_color_theme)
     st.altair_chart(bar, use_container_width=True)
 
-# with col[1]:
-#     st.markdown('#### Total Population')
 
-#     choropleth = make_choropleth(gdf_province, 'commune_fr', selected_theme, selected_color_theme)
-
-#     choropleth.add_trace(go.Scattermapbox(
-#         lat=gdf_bv.geometry.y,
-#         lon=gdf_bv.geometry.x,
-#         mode='markers',
-#         marker=go.scattermapbox.Marker(size=9, color='red', symbol='circle'),
-#         text=gdf_bv['Commune'],
-#         name='Bureaux de vote',
-#         hoverinfo='text',
-#         customdata=gdf_bv.index,
-#     ))
-
-    # # Use plotly_events instead of st.plotly_chart
-    # click = plotly_events(choropleth, click_event=True, key="plot1")
-    
-    # st.plotly_chart(choropleth, use_container_width=True)
-
-    # # Store selected index in session state
-    # if click and 'pointIndex' in click[0]:
-    #     st.session_state.selected_bv = click[0]['pointIndex']
-    
-    
-    # # Show bar chart (separately, no shaking)
-    # bar = make_bar(df_sorted, 'commune_fr', selected_theme, selected_color_theme)
-    # st.altair_chart(bar, use_container_width=True)
 
 
 
@@ -222,10 +209,3 @@ with col[2]:
                  )
 
 
-    st.markdown("#### Bureau de vote sélectionné")
-
-    if st.session_state.selected_bv is not None:
-        selected_row = gdf_bv.loc[st.session_state.selected_bv].drop('geometry')
-        st.dataframe(pd.DataFrame(selected_row).T)
-    else:
-        st.info("Cliquez sur un point rouge pour voir ses attributs.")
