@@ -186,7 +186,7 @@ for idx, row in gdf_bv.iterrows():
         icon=folium.DivIcon(html=f"""
             <div style="font-size:24px;">🗳️</div>
         """),
-        tooltip="Bureau: "+row["Nom_du__bu"],
+        tooltip="Bureau: "+str(row["Nom_du__bu"]),
         popup=folium.Popup(popup_html, max_width=300)
     ).add_to(cluster)
 

@@ -15,7 +15,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 geojson_dir = BASE_DIR / "shared_data" / "geojson_files"
 
 province_path = geojson_dir / "prov.geojson"
-bv_path = geojson_dir / "bv_prov.geojson"
+# bv_path = geojson_dir / "bv_prov.geojson"
+bv_path = geojson_dir / "bv.geojson"
 douars_path = geojson_dir / "douars.geojson"
 
 @st.cache_data
