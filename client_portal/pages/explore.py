@@ -19,11 +19,14 @@ if "auth" not in st.session_state or not st.session_state["auth"]:
 
 
 # --- Load data ---
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-geojson_dir = BASE_DIR / "shared_data" / "geojson_files"
+# --- Load data ---
+from utils.load_once import load_data_once
 
-gdf_prov = gpd.read_file(geojson_dir / "prov.geojson")
-gdf_bv = gpd.read_file(geojson_dir / "bv_prov.geojson")
+load_data_once()
+
+gdf_prov = st.session_state["gdf_province"]
+gdf_bv = st.session_state["gdf_bv"]
+
 
 # Page title
 st.title("📊 Explore Data")

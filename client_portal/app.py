@@ -11,28 +11,28 @@ st.set_page_config(page_title="GeoDashboard", layout="wide", initial_sidebar_sta
 
 # # --- Load data ---
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-geojson_dir = BASE_DIR / "shared_data" / "geojson_files"
+# BASE_DIR = Path(__file__).resolve().parent.parent
+# geojson_dir = BASE_DIR / "shared_data" / "geojson_files"
 
-province_path = geojson_dir / "prov.geojson"
-# bv_path = geojson_dir / "bv_prov.geojson"
-bv_path = geojson_dir / "bv.geojson"
-douars_path = geojson_dir / "douars.geojson"
+# province_path = geojson_dir / "prov.geojson"
+# # bv_path = geojson_dir / "bv_prov.geojson"
+# bv_path = geojson_dir / "bv.geojson"
+# douars_path = geojson_dir / "douars.geojson"
 
-@st.cache_data
-def load_gdf(path):
-    return gpd.read_file(path)
+# @st.cache_data
+# def load_gdf(path):
+#     return gpd.read_file(path)
 
-# Lostad and cache data in session state
-if "gdf_province" not in st.session_state:
-    st.session_state["gdf_province"] = load_gdf(province_path)
+# # Lostad and cache data in session state
+# if "gdf_province" not in st.session_state:
+#     st.session_state["gdf_province"] = load_gdf(province_path)
     
-if "gdf_bv" not in st.session_state:
-    st.session_state["gdf_bv"] = load_gdf(bv_path)
+# if "gdf_bv" not in st.session_state:
+#     st.session_state["gdf_bv"] = load_gdf(bv_path)
 
 
-if "gdf_douars" not in st.session_state:
-    st.session_state["gdf_douars"] = load_gdf(douars_path)
+# if "gdf_douars" not in st.session_state:
+#     st.session_state["gdf_douars"] = load_gdf(douars_path)
 
 
 

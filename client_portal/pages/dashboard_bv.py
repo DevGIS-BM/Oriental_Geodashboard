@@ -13,11 +13,17 @@ import base64
 from io import BytesIO
 
 # --- Load data ---
+from utils.load_once import load_data_once
+
+load_data_once()
+
 gdf_province = st.session_state["gdf_province"]
 gdf_bv = st.session_state["gdf_bv"]
 gdf_douars = st.session_state["gdf_douars"]
 
-st.title("🗺️ Thematic Map of Electoral offices of the province")
+
+
+st.title("🗺️ Map of Electoral offices")
 
 @st.cache_data
 def generate_bar_chart_html(row_data):

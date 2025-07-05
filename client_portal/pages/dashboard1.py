@@ -24,8 +24,13 @@ st.title("🗺️ Oriental INDH Dashboard")
 
 alt.themes.enable("dark")
 
+# --- Load data ---
+from utils.load_once import load_data_once
+
+load_data_once()
+
 gdf_province = st.session_state["gdf_province"]
-# gdf_bv = st.session_state["gdf_bv"]
+gdf_bv = st.session_state["gdf_bv"]
 gdf_douars = st.session_state["gdf_douars"]
 
 def make_bar(input_df, input_x, input_theme, input_color_theme):

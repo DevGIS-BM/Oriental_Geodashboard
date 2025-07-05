@@ -3,6 +3,11 @@ import pandas as pd
 import geopandas as gpd
 
 # Load your session data
+# --- Load data ---
+from utils.load_once import load_data_once
+
+load_data_once()
+
 gdf_province = st.session_state["gdf_province"]
 gdf_bv = st.session_state["gdf_bv"]
 gdf_douars = st.session_state["gdf_douars"]
