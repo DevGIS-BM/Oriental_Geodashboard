@@ -2,6 +2,7 @@ import geopandas as gpd
 import streamlit as st
 from pathlib import Path
 
+@st.cache_resource
 def load_data_once():
     base_path = Path(__file__).resolve().parent.parent  # client_portal/
     data_path = base_path.parent / "shared_data" / "geojson_files"

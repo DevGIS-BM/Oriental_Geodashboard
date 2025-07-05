@@ -73,7 +73,7 @@ def generate_bar_chart_html(row_data):
 
     return f'<img src="data:image/png;base64,{img_base64}" width="200">'
 
-@st.cache_resource
+# @st.cache_resource
 def create_map(_gdf_province_data):
     m = folium.Map(location=[34.95, -3.39], zoom_start=9, control_scale=True)
     
