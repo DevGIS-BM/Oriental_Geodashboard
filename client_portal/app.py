@@ -109,6 +109,8 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     Home = st.Page("pages/home.py", title="Home", icon="🖥️")
     dashboard1 = st.Page("pages/dashboard1.py", title="General",icon="🗺️")
     dashboard_bv = st.Page("pages/dashboard_bv.py", title="Bureaux de vote",icon="🗳️")
+    Benteib = st.Page("pages/benteib.py", title="Ben Teib")
+    Midar = st.Page("pages/midar.py", title="Midar")
     explore =st.Page("pages/explore.py", title="Explore data",icon="📊")
     search = st.Page("pages/search.py", title="Search",icon="🔍")
     settings = st.Page("pages/settings.py", title="Settings",icon="⚙️")
@@ -116,6 +118,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
         
         "Client Portal": [Home],
         "Dashboard": [dashboard1,dashboard_bv],
+        "Pachalik": [Benteib],
         "Queries": [explore,search],
         "Tools": [settings],
 
