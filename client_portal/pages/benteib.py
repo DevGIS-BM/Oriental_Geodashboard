@@ -14,12 +14,21 @@ from io import BytesIO
 from pathlib import Path
 
 # --- Load data ---
-from utils.load_once import load_data_once
+# from utils.load_once import load_data_once
 
-load_data_once()
+# load_data_once()
 
+base_path = Path(__file__).resolve().parent.parent  # client_portal/
+data_path = base_path.parent / "shared_data" / "geojson_files"
 
+if "p_benteib_quartiers" not in st.session_state:
+    st.session_state["p_benteib_quartiers"] = gpd.read_file(data_path / "pacha_benteib_quartiers.geojson")
 
+if "p_benteib_puits" not in st.session_state:
+    st.session_state["p_benteib_puits"] = gpd.read_file(data_path / "pacha_benteib_puits.geojson")
+
+if "p_benteib_mosq" not in st.session_state:
+    st.session_state["p_benteib_mosq"] = gpd.read_file(data_path / "pacha_benteib_mosq.geojson")
 
 p_benteib_quartiers = st.session_state["p_benteib_quartiers"]
 p_benteib_mosq = st.session_state["p_benteib_mosq"]
