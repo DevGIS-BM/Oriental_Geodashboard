@@ -238,4 +238,5 @@ folium.LayerControl(position='topright', collapsed=False).add_to(m)
 
 # --- Render map ---
 # st_data = st_folium(m, width="100%", height=700, returned_objects=[])
-st_data = st_folium(m, width="100%", height=700, returned_objects=[], key="my_dashboard_map")
+# st_data = st_folium(m, width="100%", height=700, returned_objects=[], key="my_dashboard_map")
+st_data = st_folium(m, width="100%", height=700)
