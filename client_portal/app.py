@@ -109,6 +109,8 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     Home = st.Page("pages/home.py", title="Home", icon="🖥️")
     dashboard1 = st.Page("pages/dashboard1.py", title="General",icon="🗺️")
     dashboard_bv = st.Page("pages/dashboard_bv.py", title="Bureaux de vote",icon="🗳️")
+    dashboard_route = st.Page("pages/dashboard_routes.py", title="Roads Network",icon="🚗")
+    dashboard_educ = st.Page("pages/dashboard_educ.py", title="Education",icon="🏫")
     Benteib = st.Page("pages/benteib.py", title="Ben Teib")
     Midar = st.Page("pages/midar.py", title="Midar")
     explore =st.Page("pages/explore.py", title="Explore data",icon="📊")
@@ -117,7 +119,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     nav = st.navigation({
         
         "Client Portal": [Home],
-        "Dashboard": [dashboard1,dashboard_bv],
+        "Dashboard": [dashboard1,dashboard_bv,dashboard_route,dashboard_educ],
         "Pachalik": [Benteib],
         "Queries": [explore,search],
         "Tools": [settings],
