@@ -31,7 +31,7 @@ CANDIDATES = {
     "Douars": ("gdf_douars", "douars.geojson"),
     "Réseau routier": ("gdf_routes", "res_routier.geojson"),
     "Éducation - Communes": ("gdf_educ_communes", "educ_commune.geojson"),
-    "Établissements scolaires": ("gdf_ecole", "ecoles.geojson"),  # change if different
+    "Établissements scolaires": ("gdf_ecole", "educ_tot.geojson"),  # change if different
     "Indices sociaux - Communes": ("gdf_social", "sociale_communes.geojson"),
 }
 
