@@ -1,8 +1,5 @@
 import streamlit as st
 import geopandas as gpd
-# import folium
-# from streamlit_folium import st_folium
-# from folium.plugins import MarkerCluster
 from pathlib import Path
 import pandas as pd
 
@@ -155,28 +152,7 @@ with col[0]:
     
 with col[1]:
     st.markdown('#### Total Population')
-    
-    
-    # Prepare hover text with multiple lines (HTML-like tooltips)
-    # gdf_bv["hover_text"] = (
-    #     "N°:  " + gdf_bv["N°_Bureau"].astype(str) + "<br>" +
-    #     "Nom:  " + gdf_bv["Nom_du__bu"].astype(str) + "<br>"  
-    # )     
-    
-    # choropleth = make_choropleth(gdf_province, 'commune_fr', selected_theme, selected_color_theme)
-    # # Add electoral office points to the same map
-    # choropleth.add_trace(go.Scattermapbox(
-    #     lat=gdf_bv.geometry.y,
-    #     lon=gdf_bv.geometry.x,
-    #     mode='markers',
-    #     marker=go.scattermapbox.Marker(
-    #         size=9,
-    #         color='black',
-    #         symbol='circle'
-    #     ),
-    #     name='Bureau',
-    #     text=gdf_bv["hover_text"],  # or any column you want in the hover tooltip
-    # ))    
+     
     
     gdf_douars["hover_text"] = (
         "Douar:  " + gdf_douars["Douar"].astype(str) + "<br>" +

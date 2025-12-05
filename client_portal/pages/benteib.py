@@ -161,33 +161,8 @@ for idx, row in p_benteib_puits.iterrows():
     ).add_to(fg_puits)
 
 
-# fg_mosq = folium.FeatureGroup(name="Mosqué").add_to(m)
-    
-# star marker
-# icon_star = fp.BeautifyIcon(
-#     icon='star',
-#     inner_icon_style='color:black;font-size:20px;',
-#     background_color='transparent',
-#     border_color='transparent',
-# )
-# for _, row in p_benteib_mosq.iterrows():
-#     popup_puit = f"""
-#     <b>province:</b> {row['province']}<br>
-#     <b>Joumaa:</b> {row['joumaa']}<br>
-#     <b>Imam:</b> {row['Imam']}<br>
-#     """    
-#     popup = popup_puit
-#     folium.Marker(
-#         location=[row.geometry.y, row.geometry.x],
-#         icon=folium.Icon(icon="tint", prefix="fa", color="blue"),  # water icon
-#         tooltip=row['province'],
-#         popup=popup
-#     ).add_to(fg_mosq)
-
 # Add LayerControl at the end
 folium.LayerControl(position='topright', collapsed=False).add_to(m)
 
 # --- Render map ---
 st_data = st_folium(m, width="100%", height=700, returned_objects=[])
-# st_data = st_folium(m, width="100%", height=700, returned_objects=[], key="my_dashboard_map")
-# st_data = st_folium(m, width="100%", height=700)

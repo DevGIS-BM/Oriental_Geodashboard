@@ -40,3 +40,6 @@ def verify_user(username, password):
     result = cur.fetchone()
     conn.close()
     return result[0] if result else None
+
+
+

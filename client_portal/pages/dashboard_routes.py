@@ -174,41 +174,6 @@ for idx, row in gdf_douars.iterrows():
     ).add_to(fg_douars)
 
 
-# from branca.element import Template, MacroElement
-
-# legend_html = """
-# {% macro html() %}
-# <div style="
-#     position: fixed;
-#     bottom: 50px;
-#     right: 50px;
-#     width: 220px;
-#     z-index: 9999;
-#     font-size:14px;
-#     background-color: white;
-#     border:2px solid grey;
-#     border-radius:5px;
-#     padding: 10px;
-#     box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
-# ">
-# <b>Légende des routes</b><br>
-
-# <div style="margin-top:8px; display:flex; align-items:center;">
-#     <div style="width: 30px; height: 4px; background-color: black; margin-right: 8px;"></div>
-#     <span>Goudronnée</span>
-# </div>
-# <div style="margin-top:8px; display:flex; align-items:center;">
-#     <div style="width: 30px; height: 4px; background-color: DarkGray; margin-right: 8px;"></div>
-#     <span>Piste</span>
-# </div>
-# </div>
-# {% endmacro %}
-# """
-
-# legend = MacroElement()
-# legend._template = Template(legend_html)
-# m.get_root().add_child(legend)
-
 
 # --- Finalize map ---
 folium.LayerControl(position='topright', collapsed=False).add_to(m)

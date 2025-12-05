@@ -113,6 +113,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     dashboard_educ = st.Page("pages/dashboard_educ.py", title="Education",icon="🏫")
     dashboard_social = st.Page("pages/dashboard_social.py", title="Indices Sociaux",icon="👥")
     Benteib = st.Page("pages/benteib.py", title="Ben Teib")
+    dashboard_social2 = st.Page("pages/dashboard_social2.py", title="Indices Sociaux 2",icon="👥")
     Midar = st.Page("pages/midar.py", title="Midar")
     explore =st.Page("pages/explore.py", title="Explore data",icon="📊")
     search = st.Page("pages/search.py", title="Search",icon="🔍")
@@ -122,6 +123,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
         "Client Portal": [Home],
         "Dashboard": [dashboard1,dashboard_bv,dashboard_route,dashboard_educ,dashboard_social],
         "Pachalik": [Benteib],
+        "Indices Sociales": [dashboard_social2],
         "Queries": [explore,search],
         "Tools": [settings],
 
