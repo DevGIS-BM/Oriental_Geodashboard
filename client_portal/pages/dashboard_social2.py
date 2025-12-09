@@ -370,10 +370,12 @@ with col_chart:
     # Averages from moyen_indices.xlsx
     moy_nat = None
     moy_reg = None
+    moy_pro = None
     if selected_code in moy_df.index:
         row_moy = moy_df.loc[selected_code]
         moy_nat = row_moy.get("moy_nat", None)
         moy_reg = row_moy.get("moy_reg", None)
+        moy_pro = row_moy.get("moy_pro", None)
 
     # Choose x field depending on language
     if lang == "Français":
@@ -433,7 +435,7 @@ with col_chart:
 
         nat_line = (
             alt.Chart(nat_df)
-            .mark_rule(color="black", strokeWidth=3)
+            .mark_rule(color="orange", strokeWidth=3)
             .encode(y="y:Q")
         )
 
@@ -443,7 +445,7 @@ with col_chart:
                 align="left",
                 dx=100,
                 dy=-8,
-                color="black",
+                color="orange",
                 fontWeight="bold",
                 fontSize=14,
             )
@@ -460,7 +462,7 @@ with col_chart:
 
         reg_line = (
             alt.Chart(reg_df)
-            .mark_rule(color="blue", strokeWidth=3)
+            .mark_rule(color="red", strokeWidth=3)
             .encode(y="y:Q")
         )
 
@@ -470,13 +472,39 @@ with col_chart:
                 align="left",
                 dx=100,
                 dy=-8,
-                color="blue",
+                color="red",
                 fontWeight="bold",
                 fontSize=14,
             )
             .encode(y="y:Q", text="label:N")
         )
         layers.extend([reg_line, reg_text])
+    # Provential mean line (blue)
+    if moy_pro is not None and not pd.isna(moy_pro):
+        if lang == "Français":
+            pro_df = pd.DataFrame({"y": [moy_pro], "label": ["Moyenne provincial"]})
+        else:
+            pro_df = pd.DataFrame({"y": [moy_pro], "label": ["المتوسط الاقليمي"]})
+
+        pro_line = (
+            alt.Chart(pro_df)
+            .mark_rule(color="green", strokeWidth=3)
+            .encode(y="y:Q")
+        )
+
+        pro_text = (
+            alt.Chart(pro_df)
+            .mark_text(
+                align="left",
+                dx=100,
+                dy=-8,
+                color="green",
+                fontWeight="bold",
+                fontSize=14,
+            )
+            .encode(y="y:Q", text="label:N")
+        )
+        layers.extend([pro_line, pro_text])
 
     final_chart = (
         alt.layer(*layers)
