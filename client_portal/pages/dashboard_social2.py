@@ -7,9 +7,10 @@ import folium
 from streamlit_folium import st_folium
 from folium import plugins as fp
 from folium.features import GeoJsonTooltip
-from branca.colormap import LinearColormap
 from pathlib import Path
 import altair as alt
+from branca.element import MacroElement
+from jinja2 import Template
 
 # ---------------------------
 # Paths + load data
@@ -71,9 +72,7 @@ if not available_codes:
     st.stop()
 
 # Build display labels
-display_options = [
-    f"{code} — {label_map.get(code, code)}" for code in available_codes
-]
+display_options = [f"{code} — {label_map.get(code, code)}" for code in available_codes]
 
 selected_display = st.selectbox(
     "Sélectionnez un indice / اختر المؤشر",
@@ -83,13 +82,10 @@ selected_code = selected_display.split(" — ")[0]
 selected_label = label_map.get(selected_code, selected_code)
 
 # ---------------------------
-# Prepare metric & colormap
+# Prepare metric & 3-class colors
 # ---------------------------
 # Coerce metric to numeric
-gdf_social[selected_code] = pd.to_numeric(
-    gdf_social[selected_code], errors="coerce"
-)
-
+gdf_social[selected_code] = pd.to_numeric(gdf_social[selected_code], errors="coerce")
 metric_series = gdf_social[selected_code].copy()
 metric_series_nonnull = metric_series.dropna()
 
@@ -97,28 +93,132 @@ if metric_series_nonnull.empty:
     st.error("Pas de données numériques pour cet indice.")
     st.stop()
 
-vmin = float(metric_series_nonnull.min())
-vmax = float(metric_series_nonnull.max())
+# Quantile thresholds for low / medium / high
+q_low, q_high = metric_series_nonnull.quantile([1 / 3, 2 / 3])
 
-ylorrd = [
-    "#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C",
-    "#FC4E2A", "#E31A1C", "#BD0026", "#800026"
-]
+# Colors
+COLOR_LOW = "#2ecc71"   # green
+COLOR_MED = "#f39c12"   # orange
+COLOR_HIGH = "#e74c3c"  # red
+COLOR_NODATA = "#cccccc"
 
-if vmin == vmax:
-    cmap = LinearColormap([ylorrd[0]], vmin=vmin, vmax=vmax, caption=selected_label)
-else:
-    cmap = LinearColormap(ylorrd, vmin=vmin, vmax=vmax, caption=selected_label)
-
-# Precompute color for each commune (for chart)
-def val_to_color(val):
+def classify_value(val):
+    """Return class name and color."""
     if pd.isna(val):
-        return "#cccccc"
-    return cmap(val)
+        return "No data", COLOR_NODATA
+    if val <= q_low:
+        return ("Faible" if lang == "Français" else "منخفض"), COLOR_LOW
+    elif val <= q_high:
+        return ("Moyen" if lang == "Français" else "متوسط"), COLOR_MED
+    else:
+        return ("Élevé" if lang == "Français" else "مرتفع"), COLOR_HIGH
 
-gdf_social["__color__"] = gdf_social[selected_code].apply(val_to_color)
+def val_to_color(val):
+    return classify_value(val)[1]
+
+# Precompute color + class label for each commune (for chart)
+classes = gdf_social[selected_code].apply(classify_value)
+gdf_social["__color__"] = classes.apply(lambda x: x[1])
+gdf_social["__class__"] = classes.apply(lambda x: x[0])
 
 # ---------------------------
+# Custom 3-class legend for Folium
+# # ---------------------------
+# class ThreeClassLegend(MacroElement):
+#     def __init__(self, lang, q_low, q_high):
+#         super().__init__()
+#         self._name = "ThreeClassLegend"
+#         if lang == "Français":
+#             title = "Classes de l'indice"
+#             low_label = f"Faible (≤ {q_low:.1f})"
+#             med_label = f"Moyen ({q_low:.1f}–{q_high:.1f})"
+#             high_label = f"Élevé (> {q_high:.1f})"
+#         else:
+#             title = "تصنيف المؤشر"
+#             low_label = f"منخفض (≤ {q_low:.1f})"
+#             med_label = f"متوسط ({q_low:.1f}–{q_high:.1f})"
+#             high_label = f"مرتفع (> {q_high:.1f})"
+
+#         self.template = Template(
+#             f"""
+#         {% macro script(this, kwargs) %}
+#         var legend = L.control({{position: 'bottomright'}});
+#         legend.onAdd = function (map) {{
+#             var div = L.DomUtil.create('div', 'info legend');
+#             div.style.background = 'white';
+#             div.style.padding = '8px';
+#             div.style.borderRadius = '5px';
+#             div.style.boxShadow = '0 0 5px rgba(0,0,0,0.4)';
+#             div.style.fontSize = '12px';
+#             div.style.lineHeight = '18px';
+#             div.innerHTML += '<b>{title}</b><br>';
+#             div.innerHTML += '<i style="background:{COLOR_LOW};width:14px;height:14px;float:left;margin-right:6px;opacity:0.9;"></i>{low_label}<br>';
+#             div.innerHTML += '<i style="background:{COLOR_MED};width:14px;height:14px;float:left;margin-right:6px;opacity:0.9;"></i>{med_label}<br>';
+#             div.innerHTML += '<i style="background:{COLOR_HIGH};width:14px;height:14px;float:left;margin-right:6px;opacity:0.9;"></i>{high_label}<br>';
+#             return div;
+#         }};
+#         legend.addTo({{this._parent.get_name()}});
+#         {% endmacro %}
+#         """
+#         )
+
+#     def render(self, **kwargs):
+#         super().render(**kwargs)
+
+# # ---------------------------
+
+# class ThreeClassLegend(MacroElement):
+#     def __init__(self, lang, q_low, q_high):
+#         super().__init__()
+#         self._name = "ThreeClassLegend"
+
+#         if lang == "Français":
+#             title = "Classes de l'indice"
+#             low_label  = f"Faible (≤ {q_low:.1f})"
+#             med_label  = f"Moyen ({q_low:.1f}–{q_high:.1f})"
+#             high_label = f"Élevé (> {q_high:.1f})"
+#         else:
+#             title = "تصنيف المؤشر"
+#             low_label  = f"منخفض (≤ {q_low:.1f})"
+#             med_label  = f"متوسط ({q_low:.1f}–{q_high:.1f})"
+#             high_label = f"مرتفع (> {q_high:.1f})"
+
+#         template_str = """
+#         {% macro script(this, kwargs) %}
+#         var legend = L.control({position: 'bottomright'});
+#         legend.onAdd = function (map) {
+#             var div = L.DomUtil.create('div', 'info legend');
+#             div.style.background = 'white';
+#             div.style.padding = '8px';
+#             div.style.borderRadius = '5px';
+#             div.style.boxShadow = '0 0 5px rgba(0,0,0,0.4)';
+#             div.style.fontSize = '12px';
+#             div.style.lineHeight = '18px';
+
+#             div.innerHTML += '<b>{{title}}</b><br>';
+#             div.innerHTML += '<i style="background:{{c_low}};width:14px;height:14px;float:left;margin-right:6px;"></i>{{low_label}}<br>';
+#             div.innerHTML += '<i style="background:{{c_med}};width:14px;height:14px;float:left;margin-right:6px;"></i>{{med_label}}<br>';
+#             div.innerHTML += '<i style="background:{{c_high}};width:14px;height:14px;float:left;margin-right:6px;"></i>{{high_label}}<br>';
+
+#             return div;
+#         };
+#         legend.addTo(this._parent);
+#         {% endmacro %}
+#         """
+
+#         self.template = Template(template_str).render(
+#             title     = title,
+#             low_label = low_label,
+#             med_label = med_label,
+#             high_label = high_label,
+#             c_low  = COLOR_LOW,
+#             c_med  = COLOR_MED,
+#             c_high = COLOR_HIGH
+#         )
+
+#     def render(self, **kwargs):
+#         super().render(**kwargs)
+
 # Map factory
 # ---------------------------
 def create_map(gdf_communes: gpd.GeoDataFrame):
@@ -129,25 +229,29 @@ def create_map(gdf_communes: gpd.GeoDataFrame):
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
         attr="Tiles © Esri — Source: USGS, Esri, TANA, DeLorme, NAVTEQ",
-        name="ESRI Terrain", overlay=False, control=True
+        name="ESRI Terrain",
+        overlay=False,
+        control=True,
     ).add_to(m)
     folium.TileLayer(
         tiles="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
         attr="© OpenTopoMap contributors",
-        name="OpenTopoMap", overlay=False, control=True
+        name="OpenTopoMap",
+        overlay=False,
+        control=True,
     ).add_to(m)
 
     fp.Fullscreen(
         position="topleft",
         title="Fullscreen",
         title_cancel="Exit",
-        force_separate_button=True
+        force_separate_button=True,
     ).add_to(m)
 
     # Communes feature group
     fg_communes = folium.FeatureGroup(name="Communes – indices sociaux").add_to(m)
 
-    # Style using same colormap as chart
+    # Style using 3-class color
     def style_fn(feat):
         val = feat["properties"].get(selected_code)
         return {
@@ -164,14 +268,14 @@ def create_map(gdf_communes: gpd.GeoDataFrame):
         name=f"Choropleth – {selected_label}",
     ).add_to(fg_communes)
 
-    # Legend
-    cmap.add_to(m)
+    # Add custom legend
+    # legend = ThreeClassLegend(lang, q_low, q_high)
+    # m.get_root().add_child(legend)
 
     # Tooltip fields
     tooltip_fields = []
     tooltip_aliases = []
 
-    base_fields = ["province_f", "commune_fr", "Menages", "Population"]
     for field, alias_fr, alias_ar in [
         ("province_f", "Province", "العمالة / الإقليم"),
         ("commune_fr", "Commune", "الجماعة"),
@@ -239,26 +343,29 @@ def create_map(gdf_communes: gpd.GeoDataFrame):
 # ---------------------------
 # Layout: map + chart
 # ---------------------------
-col_map, col_chart = st.columns([2, 2])
+col_chart,col_map = st.columns([2, 2])
 
 with col_map:
     m = create_map(gdf_social)
-    st_folium(m, width="100%", height=700)
+    st_folium(m, width="100%", height=620)
 
 # ---------------------------
 # Chart with same colors + mean lines
 # ---------------------------
 with col_chart:
-    st.markdown(f"### 📊 {selected_label}")
-
     # Prepare dataframe for chart
     chart_df = gdf_social.copy()
     if "commune_fr" not in chart_df.columns:
         chart_df["commune_fr"] = chart_df.index.astype(str)
+    if "commune_ar" not in chart_df.columns:
+        chart_df["commune_ar"] = chart_df.index.astype(str)
 
-    chart_df = chart_df[["commune_fr", selected_code, "__color__"]].dropna(
-        subset=[selected_code]
-    )
+    chart_df = chart_df[
+        ["commune_fr", "commune_ar", selected_code, "__color__"]
+    ].dropna(subset=[selected_code])
+
+    # Order communes by value (biggest to smallest)
+    chart_df = chart_df.sort_values(by=selected_code, ascending=False)
 
     # Averages from moyen_indices.xlsx
     moy_nat = None
@@ -268,67 +375,135 @@ with col_chart:
         moy_nat = row_moy.get("moy_nat", None)
         moy_reg = row_moy.get("moy_reg", None)
 
+    # Choose x field depending on language
+    if lang == "Français":
+        x_field = "commune_fr"
+        x_title = "Communes territoriales"
+        y_title = "Pourcentage"
+    else:
+        x_field = "commune_ar"
+        x_title = "الجماعات الترابية"
+        y_title = "النسبة المئوية"
+
     # Base bars
-    bars = alt.Chart(chart_df).mark_bar().encode(
-        x=alt.X("commune_fr:N", title="Commune"),
-        y=alt.Y(f"{selected_code}:Q", title=selected_label),
-        color=alt.Color("__color__:N", scale=None, legend=None),
-        tooltip=["commune_fr", selected_code],
-    ).properties(width="container", height=400)
+    bars = (
+        alt.Chart(chart_df)
+        .mark_bar()
+        .encode(
+            x=alt.X(
+                f"{x_field}:N",
+                title=x_title,
+                sort=alt.SortField(field=selected_code, order="descending"),
+            ),
+            y=alt.Y(f"{selected_code}:Q", title=y_title),
+            color=alt.Color("__color__:N", scale=None, legend=None),
+            tooltip=[x_field, selected_code],
+        )
+        .properties(width="container", height=400)
+    )
 
-    layers = [bars]
+    # Text labels on bars
+    text_labels = (
+        alt.Chart(chart_df)
+        .mark_text(
+            align="center",
+            baseline="bottom",
+            dy=-3,
+            color="black",
+            fontSize=11,
+        )
+        .encode(
+            x=alt.X(
+                f"{x_field}:N",
+                sort=alt.SortField(field=selected_code, order="descending"),
+            ),
+            y=alt.Y(f"{selected_code}:Q"),
+            text=alt.Text(f"{selected_code}:Q", format=".1f"),
+        )
+    )
 
-    # National mean line
+    layers = [bars, text_labels]
+
+    # National mean line (black)
     if moy_nat is not None and not pd.isna(moy_nat):
         if lang == "Français":
             nat_df = pd.DataFrame({"y": [moy_nat], "label": ["Moyenne nationale"]})
         else:
             nat_df = pd.DataFrame({"y": [moy_nat], "label": ["المتوسط الوطني"]})
-        nat_line = alt.Chart(nat_df).mark_rule(color="white", strokeWidth=3).encode(
-            y="y:Q"
+
+        nat_line = (
+            alt.Chart(nat_df)
+            .mark_rule(color="black", strokeWidth=3)
+            .encode(y="y:Q")
         )
-        nat_text = alt.Chart(nat_df).mark_text(
-            align="left",
-            dx=5,
-            dy=-5,
-            color="white",
-            fontWeight="bold",  # bold text
-            fontSize=14
-        ).encode(
-            y="y:Q",
-            text="label:N",
+
+        nat_text = (
+            alt.Chart(nat_df)
+            .mark_text(
+                align="left",
+                dx=100,
+                dy=-8,
+                color="black",
+                fontWeight="bold",
+                fontSize=14,
+            )
+            .encode(y="y:Q", text="label:N")
         )
         layers.extend([nat_line, nat_text])
 
-    # Regional mean line
+    # Regional mean line (blue)
     if moy_reg is not None and not pd.isna(moy_reg):
         if lang == "Français":
             reg_df = pd.DataFrame({"y": [moy_reg], "label": ["Moyenne régionale"]})
         else:
             reg_df = pd.DataFrame({"y": [moy_reg], "label": ["المتوسط الجهوي"]})
-        reg_line = alt.Chart(reg_df).mark_rule(color="blue", strokeWidth=3).encode(
-            y="y:Q"
+
+        reg_line = (
+            alt.Chart(reg_df)
+            .mark_rule(color="blue", strokeWidth=3)
+            .encode(y="y:Q")
         )
-        reg_text = alt.Chart(reg_df).mark_text(
-            align="left",
-            dx=5,
-            dy=10,
-            color="blue",
-            fontWeight="bold",  # bold text
-            fontSize=14
-        ).encode(
-            y="y:Q",
-            text="label:N",
+
+        reg_text = (
+            alt.Chart(reg_df)
+            .mark_text(
+                align="left",
+                dx=100,
+                dy=-8,
+                color="blue",
+                fontWeight="bold",
+                fontSize=14,
+            )
+            .encode(y="y:Q", text="label:N")
         )
         layers.extend([reg_line, reg_text])
 
-    final_chart = alt.layer(*layers).resolve_scale(color="independent")
+    final_chart = (
+        alt.layer(*layers)
+        .resolve_scale(color="independent")
+        .properties(
+            padding={'left': 20, 'top': 10, 'right': 20, 'bottom': 10},
+            title=alt.Title(
+                text=selected_label,
+                anchor="middle",
+                fontSize=16,
+                fontWeight="bold",
+                color="grey",
+    # Adjust the offset from the chart
+            ),
+            background="white",
+            height=620,          # overall figure height (close to map height 700)
+            width="container",
+        )
+        .configure_view(fill="white")
+        .configure_axis(labelColor="black", titleColor="black")
+        .configure_title(
+        offset=50,    
+
+
+    )
+    )
+
     st.altair_chart(final_chart, use_container_width=True)
 
-    # Small legend reminder
-    # if lang == "Français":
-    #     st.caption("Les barres reprennent les mêmes couleurs que la carte. "
-    #                "Ligne verte : moyenne nationale. Ligne orange : moyenne régionale.")
-    # else:
-    #     st.caption("الأعمدة لها نفس ألوان الخريطة. "
-    #                "الخط الأخضر: المعدل الوطني. الخط البرتقالي: المعدل الجهوي.")
+    
