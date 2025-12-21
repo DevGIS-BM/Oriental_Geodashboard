@@ -1,4 +1,4 @@
-# client_portal/pages/dashboard_social.py
+# client_portal/pages/dashboard_social2.py
 
 import streamlit as st
 import geopandas as gpd
@@ -11,25 +11,41 @@ from pathlib import Path
 import altair as alt
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+from shapely.geometry import Point
 
-# ---------------------------
+# ============================================================
+# CONFIG: set your file names here
+# ============================================================
+REGION_GEOJSON = "region_oriental.geojson"     # <-- CHANGE to your real file
+NATIONAL_GEOJSON = "maroc.geojson"             # <-- CHANGE to your real file
+
+SCHOOLS_GEOJSON = "ecoles_driouch.geojson"     # optional layer
+ROADS_GEOJSON = "routes_driouch.geojson"       # optional layer
+
+
+# ============================================================
 # Paths + load data
-# ---------------------------
+# ============================================================
 base_path = Path(__file__).resolve().parent.parent  # client_portal/
 geo_path = base_path.parent / "shared_data" / "geojson_files"
 xls_path = base_path.parent / "shared_data"
 
-# Main social indices polygons (communes)
+# st.set_page_config(page_title="Indices Sociaux", layout="wide")
+
+# ---------------------------
+# Load communes (province) polygons (ct_driouch)
+# ---------------------------
 if "gdf_social" not in st.session_state:
     gdf_social = gpd.read_file(geo_path / "ct_driouch.geojson")
-    # Ensure WGS84 for Folium
     if gdf_social.crs is not None and gdf_social.crs.to_epsg() != 4326:
         gdf_social = gdf_social.to_crs(epsg=4326)
     st.session_state["gdf_social"] = gdf_social
 else:
     gdf_social = st.session_state["gdf_social"]
 
+# ---------------------------
 # Douars points
+# ---------------------------
 if "gdf_douars" not in st.session_state:
     gdf_douars = gpd.read_file(geo_path / "douars.geojson")
     if gdf_douars.crs is not None and gdf_douars.crs.to_epsg() != 4326:
@@ -38,7 +54,52 @@ if "gdf_douars" not in st.session_state:
 else:
     gdf_douars = st.session_state["gdf_douars"]
 
-# Codes → labels (FR / AR) + direction
+# ---------------------------
+# Optional: schools
+# ---------------------------
+gdf_schools = gpd.read_file(geo_path / "educ_tot.geojson")
+schools_file = geo_path / SCHOOLS_GEOJSON
+if schools_file.exists():
+    if "gdf_schools" not in st.session_state:
+        tmp = gpd.read_file(schools_file)
+        if tmp.crs is not None and tmp.crs.to_epsg() != 4326:
+            tmp = tmp.to_crs(epsg=4326)
+        st.session_state["gdf_schools"] = tmp
+    gdf_schools = st.session_state["gdf_schools"]
+
+# ---------------------------
+# Optional: roads
+# ---------------------------
+gdf_roads = None
+roads_file = geo_path / ROADS_GEOJSON
+if roads_file.exists():
+    if "gdf_roads" not in st.session_state:
+        tmp = gpd.read_file(roads_file)
+        if tmp.crs is not None and tmp.crs.to_epsg() != 4326:
+            tmp = tmp.to_crs(epsg=4326)
+        st.session_state["gdf_roads"] = tmp
+    gdf_roads = st.session_state["gdf_roads"]
+
+# ---------------------------
+# Optional: region / national polygons
+# ---------------------------
+gdf_region = None
+reg_file = geo_path / REGION_GEOJSON
+if reg_file.exists():
+    gdf_region = gpd.read_file(reg_file)
+    if gdf_region.crs is not None and gdf_region.crs.to_epsg() != 4326:
+        gdf_region = gdf_region.to_crs(epsg=4326)
+
+gdf_national = None
+nat_file = geo_path / NATIONAL_GEOJSON
+if nat_file.exists():
+    gdf_national = gpd.read_file(nat_file)
+    if gdf_national.crs is not None and gdf_national.crs.to_epsg() != 4326:
+        gdf_national = gdf_national.to_crs(epsg=4326)
+
+# ---------------------------
+# Codes → labels (FR / AR) + direction + group + alias
+# ---------------------------
 codes_df = pd.read_excel(xls_path / "social_codes.xlsx", dtype={"code": str})
 codes_df["code"] = codes_df["code"].str.zfill(3)
 
@@ -47,44 +108,181 @@ moy_df = pd.read_excel(xls_path / "moyen_indices.xlsx", dtype={"code": str})
 moy_df["code"] = moy_df["code"].str.zfill(3)
 moy_df = moy_df.set_index("code")
 
-st.title("👥 Indices sociaux par commune")
-
-# ---------------------------
-# Language selection
-# ---------------------------
-lang = st.radio(
-    "🌐 Choisissez la langue / اختر اللغة",
-    options=["Français", "العربية"],
-    horizontal=True,
+# ============================================================
+# TOP UI: language + mode buttons (styled)
+# ============================================================
+st.markdown(
+    """
+<style>
+/* pill-like radio */
+div[role="radiogroup"] > label {
+    background: #20768A;
+    padding: 8px 14px;
+    border-radius: 10px;
+    margin-right: 10px;
+    border: 1px solid #99999955;
+}
+div[role="radiogroup"] > label:hover {
+    border-color: #F54927;
+}
+</style>
+""",
+    unsafe_allow_html=True,
 )
 
-label_col = "signification_fr" if lang == "Français" else "signification_ar"
-label_map = dict(zip(codes_df["code"], codes_df[label_col]))
+col_top1, col_top2 = st.columns([1, 2])
 
-# ---------------------------
-# Determine which codes exist in GeoJSON
-# ---------------------------
+with col_top1:
+    lang = st.radio(
+        "🌐 Langue / اللغة",
+        options=["Français", "العربية"],
+        horizontal=True,
+        key="lang_social",
+    )
+
+with col_top2:
+    options_map = {
+    "Indice Provincial": "المؤشر الإقليمي",
+    "Indice Régional": "المؤشر الجهوي",
+    "Indice National": "المؤشر الوطني"
+}
+    if lang == "Français":
+        mode = st.radio(
+            "Mode",
+            options=["Indice Provincial", "Indice Régional", "Indice National"],
+            horizontal=True,
+            key="mode_social",
+        )
+    else:
+        mode = st.radio(
+            "المستوى",
+            options=options_map.keys(),
+            format_func=lambda x: options_map.get(x),
+            horizontal=True,
+            key="mode_social",
+                
+    )
+       
+
+st.markdown("---")
+
+label_col = "signification_fr" if lang == "Français" else "signification_ar"
+
+# Alias columns (optional)
+alias_col = "alias_fr" if lang == "Français" else "alias_ar"
+has_group = "group" in codes_df.columns
+has_group_ar = "group_ar" in codes_df.columns
+has_alias = alias_col in codes_df.columns
+
+# ============================================================
+# RIGHT PANEL: controls (grouping + indicator search + layers)
+# ============================================================
+# determine which codes exist in the polygons
 all_codes = codes_df["code"].tolist()
 available_codes = [c for c in all_codes if c in gdf_social.columns]
-
 if not available_codes:
     st.error("Aucun code d'indice trouvé dans ct_driouch.geojson.")
     st.stop()
 
-# Build display labels
-display_options = [f"{code} — {label_map.get(code, code)}" for code in available_codes]
+# Create a label for each code
+def build_display_label(code: str) -> str:
+    row = codes_df.loc[codes_df["code"] == code]
+    if row.empty:
+        return code
+    sig = row.iloc[0].get(label_col, code)
+    if has_alias and pd.notna(row.iloc[0].get(alias_col, None)):
+        ali = str(row.iloc[0].get(alias_col))
+        return f"{code} — {ali}"
+    # fallback: shorten signification to first ~3 words
+    sig_short = " ".join(str(sig).split()[:3])
+    return f"{code} — {sig_short}"
 
-selected_display = st.selectbox(
-    "Sélectionnez un indice / اختر المؤشر",
-    options=display_options,
-)
-selected_code = selected_display.split(" — ")[0]
-selected_label = label_map.get(selected_code, selected_code)
+# Group -> list of codes
 
-# ---------------------------
+if has_group:
+    groups = codes_df["group"].fillna("Autres").unique().tolist()
+else:
+    groups = ["Tous"]
+if lang!= "Français":
+    if has_group_ar:
+        groups = codes_df["group_ar"].fillna("Autres").unique().tolist()
+    else:
+        groups = ["Tous"]
+# ============================================================
+# MAIN LAYOUT: left chart / center map / right controls
+# ============================================================
+col_chart, col_map, col_ctrl = st.columns([2, 2, 1])
+
+with col_ctrl:
+    if lang == "Français": 
+        st.subheader("Contrôles")
+    
+        if has_group:
+            chosen_group = st.radio(
+            "Groupes d'indices",
+            options=groups, index=0,
+            horizontal=True,
+            key="groupe_indices",
+        )
+    else: 
+        st.subheader("إعدادات التحكم")
+        if has_group:
+            chosen_group = st.radio(
+            "صنف المؤشرات",
+            options=groups, index=0,
+            horizontal=True,
+            key="groupe_indices",)
+    # chosen_group = st.selectbox("Groupe", options=groups, index=0)
+    group_codes = codes_df.loc[codes_df["group"].fillna("Autres") == chosen_group, "code"].tolist()
+    group_codes = [c for c in group_codes if c in available_codes]
+    if not group_codes:
+        group_codes = available_codes
+    else:
+        chosen_group = "Tous"
+        group_codes = available_codes
+
+    # searchable indicator selectbox
+    display_options = [build_display_label(code) for code in group_codes]
+    if lang == "Français":
+        selected_display = st.selectbox("Indicateur", options=display_options)
+    else: selected_display = st.selectbox("المؤشر", options=display_options)
+    selected_code = selected_display.split(" — ")[0].strip()
+
+    # label full (for chart title)
+    row_sel = codes_df.loc[codes_df["code"] == selected_code]
+    selected_label = row_sel.iloc[0].get(label_col, selected_code) if not row_sel.empty else selected_code
+
+    if lang == "Français": 
+        st.markdown("### Couches")
+        show_douars = st.checkbox("Douars", value=True)
+        show_schools = st.checkbox("Écoles", value=False, disabled=(gdf_schools is None))
+        show_roads = st.checkbox("Routes", value=False, disabled=(gdf_roads is None))
+
+        st.markdown("### Options")
+        if mode == "Indice Régional":
+            zoom = st.slider("Zoom initial", min_value=5, max_value=14, value=7)
+        elif mode == "Indice National":
+            zoom = st.slider("Zoom initial", min_value=5, max_value=14, value=6)
+        else:
+            zoom = st.slider("Zoom initial", min_value=5, max_value=14, value=9)
+
+    else : 
+        st.markdown("### الطبقات")
+        show_douars = st.checkbox("الدواوير", value=True)
+        show_schools = st.checkbox("المدارس", value=False, disabled=(gdf_schools is None))
+        show_roads = st.checkbox("الطرق", value=False, disabled=(gdf_roads is None))
+
+        st.markdown("### إعدادات التكبير")
+        if mode == "Indice Régional":
+            zoom = st.slider("التكبير الأولي", min_value=5, max_value=14, value=7)
+        elif mode == "Indice National":
+            zoom = st.slider("التكبير الأولي", min_value=5, max_value=14, value=6)
+        else:
+            zoom = st.slider("التكبير الأولي", min_value=5, max_value=14, value=9)
+# ============================================================
 # Direction from social_codes.xlsx (up / down)
-# ---------------------------
-direction_value = "down"  # défaut : high = rouge, low = vert
+# ============================================================
+direction_value = "down"
 if "direction" in codes_df.columns:
     dir_series = codes_df.loc[codes_df["code"] == selected_code, "direction"]
     if not dir_series.empty and isinstance(dir_series.iloc[0], str):
@@ -92,14 +290,11 @@ if "direction" in codes_df.columns:
         if direction_value not in ("up", "down"):
             direction_value = "down"
 
-# ---------------------------
-# Prepare metric & continuous colors
-# ---------------------------
-# Coerce metric to numeric
+# ============================================================
+# Metric + continuous RdYlGn colors
+# ============================================================
 gdf_social[selected_code] = pd.to_numeric(gdf_social[selected_code], errors="coerce")
-metric_series = gdf_social[selected_code].copy()
-metric_series_nonnull = metric_series.dropna()
-
+metric_series_nonnull = gdf_social[selected_code].dropna()
 if metric_series_nonnull.empty:
     st.error("Pas de données numériques pour cet indice.")
     st.stop()
@@ -107,41 +302,77 @@ if metric_series_nonnull.empty:
 vmin = float(metric_series_nonnull.min())
 vmax = float(metric_series_nonnull.max())
 
-# Base colors for gradient
+# up => big values should be green => use RdYlGn (low red, high green)
+# down => big values should be red => use reversed
 base_cmap = cm.get_cmap("RdYlGn") if direction_value == "up" else cm.get_cmap("RdYlGn_r")
-
-# Normalize values to 0–1 scale
 norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
 def val_to_color(val):
-    """Return smooth RdYlGn gradient color."""
     if pd.isna(val):
-        return "#cccccc"  # grey for missing
-    rgba = base_cmap(norm(val))
-    return mcolors.to_hex(rgba)
+        return "#cccccc"
+    return mcolors.to_hex(base_cmap(norm(val)))
 
-# Compute final color for each commune
 gdf_social["__color__"] = gdf_social[selected_code].apply(val_to_color)
 
-# ---------------------------
-# Map factory
-# ---------------------------
-def create_map(gdf_communes: gpd.GeoDataFrame):
-    m = folium.Map(location=[34.95, -3.39], zoom_start=9, control_scale=True)
+# ============================================================
+# Means: choose which one is ACTIVE based on mode
+# ============================================================
+moy_nat = moy_reg = moy_pro = None
+
+def prepare_reference_gdf(gdf_ref, value):
+    """
+    Return a COPY of gdf_ref with an injected numeric column [selected_code]=value.
+    Avoids modifying the original GeoDataFrame.
+    """
+    if gdf_ref is None or getattr(gdf_ref, "empty", True) or value is None or pd.isna(value):
+        return None
+    gdf2 = gdf_ref.copy()
+    gdf2[selected_code] = float(value)
+    return gdf2
+
+
+if selected_code in moy_df.index:
+    row_moy = moy_df.loc[selected_code]
+    moy_nat = row_moy.get("moy_nat", None)
+    moy_reg = row_moy.get("moy_reg", None)
+    moy_pro = row_moy.get("moy_pro", None)
+
+
+
+if mode == "Indice Provincial":
+    key, mean_val = "pro", moy_pro
+elif mode == "Indice Régional":
+    key, mean_val = "reg", moy_reg
+else:
+    key, mean_val = "nat", moy_nat
+
+# mean_color = val_to_color(mean_val) if mean_val is not None and not pd.isna(mean_val) else "#666666"
+
+def clamp(v, lo, hi):
+    return max(lo, min(hi, v))
+
+mean_color = (
+    val_to_color(clamp(float(mean_val), vmin, vmax))
+    if mean_val is not None and not pd.isna(mean_val)
+    else "#666666"
+)
+
+
+active_mean = (key, mean_val, mean_color)
+
+
+
+
+def create_map():
+    center = [34.95, -3.39]
+    m = folium.Map(location=center, zoom_start=zoom, control_scale=True)
 
     # Basemaps
     folium.TileLayer("CartoDB positron", name="CartoDB Positron").add_to(m)
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-        attr="Tiles © Esri — Source: USGS, Esri, TANA, DeLorme, NAVTEQ",
+        attr="Tiles © Esri",
         name="ESRI Terrain",
-        overlay=False,
-        control=True,
-    ).add_to(m)
-    folium.TileLayer(
-        tiles="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-        attr="© OpenTopoMap contributors",
-        name="OpenTopoMap",
         overlay=False,
         control=True,
     ).add_to(m)
@@ -153,279 +384,317 @@ def create_map(gdf_communes: gpd.GeoDataFrame):
         force_separate_button=True,
     ).add_to(m)
 
-    # Communes feature group
-    fg_communes = folium.FeatureGroup(name="Communes – indices sociaux").add_to(m)
+    # ------------------------------------------------------------
+    # A) Background layer (UNDER communes) — only for Regional/National
+    # ------------------------------------------------------------
+    if (mode == "Indice National"):
+        fg_bg = folium.FeatureGroup(
+            name=("Maroc" if (lang == "Français") else "المغرب"  ),
+            overlay=True,
+            control=True,
+            show=True,
+        ).add_to(m)
+    elif (mode == "Indice Régional"):
+            fg_bg = folium.FeatureGroup(
+            name=("Les régions" if (lang == "Français") else  "الجهات"),
+            overlay=True,
+            control=True,
+            show=True,
+        ).add_to(m)
+    
+    def add_background_reference(gdf_bg, value, layer_name, tooltip_name_fields=None):
+        """
+        Draw a background polygon below communes:
+        - inject selected_code=value so we can color it with the SAME gradient
+        - outline is subtle
+        """
+        if gdf_bg is None or getattr(gdf_bg, "empty", True) or value is None or pd.isna(value):
+            return
 
-    # Style using continuous color
-    def style_fn(feat):
+        bg = gdf_bg.copy()
+        bg[selected_code] = float(value)
+
+        def bg_style_fn(feat):
+            v = feat["properties"].get(selected_code)
+            return {
+                "fillColor": val_to_color(v),  # same gradient as communes/chart
+                "color": mean_color, 
+                "weight": 2,
+                "fillOpacity": 0.8,
+            }
+
+        fields, aliases = [], []
+        if tooltip_name_fields:
+            for f, a_fr, a_ar in tooltip_name_fields:
+                if f in bg.columns:
+                    fields.append(f)
+                    aliases.append(a_fr if lang == "Français" else a_ar)
+
+        fields.append(selected_code)
+        aliases.append(
+            (f"{selected_label} (réf.)" if lang == "Français" else f"{selected_label} (مرجع)")
+        )
+
+        tooltip = GeoJsonTooltip(
+            fields=fields,
+            aliases=aliases,
+            localize=True,
+            sticky=False,
+            labels=True,
+            max_width=500,
+            style="background-color:#F0EFEF;border:2px solid black;border-radius:3px;",
+        )
+
+        folium.GeoJson(
+            bg.__geo_interface__,
+            name=layer_name,
+            style_function=bg_style_fn,
+            tooltip=tooltip,
+        ).add_to(fg_bg)
+
+    # Add ONLY the requested background depending on mode
+    if mode == "Indice Régional":
+        add_background_reference(
+            gdf_region,
+            moy_reg,
+            layer_name=("Région (référence)" if lang == "Français" else "الجهة (مرجع)"),
+            tooltip_name_fields=[
+                ("nom_region", "Région", "الجهة"),
+                ("nom_arabe", "Nom arabe", "الاسم بالعربية"),
+            ],
+        )
+
+    elif mode == "Indice National":
+        add_background_reference(
+            gdf_national,
+            moy_nat,
+            layer_name=("Maroc (référence)" if lang == "Français" else "المغرب (مرجع)"),
+            tooltip_name_fields=[
+                ("nom_region", "Nom", "الاسم"),
+            ],
+        )
+
+    # ------------------------------------------------------------
+    # B) Communes choropleth (ALWAYS ON TOP OF background)
+    # ------------------------------------------------------------
+    fg_communes = folium.FeatureGroup(
+        name=("Communes – indices" if lang == "Français" else "الجماعات – المؤشرات"),
+        overlay=True,
+        control=True,
+        show=True,
+    ).add_to(m)
+
+    def commune_style_fn(feat):
         val = feat["properties"].get(selected_code)
         return {
-            "fillColor": val_to_color(val),
+            "fillColor": val_to_color(val),  # same gradient used by chart colors
             "color": "black",
-            "weight": 0.5,
-            "fillOpacity": 0.7,
+            "weight": 0.8,
+            "fillOpacity": 0.75,
         }
 
     folium.GeoJson(
-        gdf_communes.__geo_interface__,
-        style_function=style_fn,
-        highlight_function=lambda x: {"fillOpacity": 0.9},
+        gdf_social.__geo_interface__,
         name=f"Choropleth – {selected_label}",
+        style_function=commune_style_fn,
+        highlight_function=lambda x: {"weight": 2, "fillOpacity": 0.9},
     ).add_to(fg_communes)
 
-    # Tooltip fields
-    tooltip_fields = []
-    tooltip_aliases = []
-
+    # ------------------------------------------------------------
+    # C) Tooltip overlay (transparent) ABOVE communes choropleth
+    # ------------------------------------------------------------
+    tooltip_fields, tooltip_aliases = [], []
     for field, alias_fr, alias_ar in [
         ("province_f", "Province", "العمالة / الإقليم"),
         ("commune_fr", "Commune", "الجماعة"),
         ("Menages", "Ménages", "الأسر"),
         ("Population", "Population", "السكان"),
     ]:
-        if field in gdf_communes.columns:
+        if field in gdf_social.columns:
             tooltip_fields.append(field)
             tooltip_aliases.append(alias_fr if lang == "Français" else alias_ar)
 
-    # Add selected metric
     tooltip_fields.append(selected_code)
     tooltip_aliases.append(selected_label)
 
-    tooltip = GeoJsonTooltip(
-        fields=tooltip_fields,
-        aliases=tooltip_aliases,
-        localize=True,
-        sticky=False,
-        labels=True,
-        style="""
-            background-color: #F0EFEF;
-            border: 2px solid black;
-            border-radius: 3px;
-            box-shadow: 3px;
-        """,
-        max_width=800,
-    )
-
     folium.GeoJson(
-        gdf_communes,
-        style_function=lambda x: {
-            "fillOpacity": 0,
-            "color": "transparent",
-            "weight": 0,
-        },
-        tooltip=tooltip,
-        name="Détails communes",
+        gdf_social,
+        name=("Détails communes" if lang == "Français" else "تفاصيل الجماعات"),
+        style_function=lambda x: {"fillOpacity": 0, "color": "transparent", "weight": 0},
+        tooltip=GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=tooltip_aliases,
+            localize=True,
+            sticky=False,
+            labels=True,
+            max_width=800,
+            style="background-color:#F0EFEF;border:2px solid black;border-radius:3px;",
+        ),
     ).add_to(fg_communes)
 
-    # Douars layer
-    fg_douars = folium.FeatureGroup(name="Douars").add_to(m)
-    for _, row in gdf_douars.iterrows():
-        if row.geometry is None:
-            continue
-        folium.CircleMarker(
-            location=[row.geometry.y, row.geometry.x],
-            radius=5,
-            color="darkgreen",
-            fill=True,
-            fill_opacity=0.8,
-            tooltip=row.get("Douar", ""),
-            popup=folium.Popup(
-                f"<b>Douar:</b> {row.get('Douar','')}<br>"
-                f"<b>Milieu:</b> {row.get('Milieu','')}<br>"
-                f"<b>Population:</b> {row.get('Popul','')}<br>",
-                max_width=300,
-            ),
-        ).add_to(fg_douars)
+    # ------------------------------------------------------------
+    # D) Points / lines layers (above polygons)
+    # ------------------------------------------------------------
+    if show_douars:
+        fg_d = folium.FeatureGroup(name=("Douars" if lang == "Français" else "الدواوير")).add_to(m)
+        for _, row in gdf_douars.iterrows():
+            if row.geometry is None:
+                continue
+            folium.CircleMarker(
+                location=[row.geometry.y, row.geometry.x],
+                radius=5,
+                color="darkgreen",
+                fill=True,
+                fill_opacity=0.85,
+                tooltip=row.get("Douar", ""),
+                popup=folium.Popup(
+                    f"<b>Douar:</b> {row.get('Douar','')}<br>"
+                    f"<b>Milieu:</b> {row.get('Milieu','')}<br>"
+                    f"<b>Population:</b> {row.get('Popul','')}<br>",
+                    max_width=320,
+                ),
+            ).add_to(fg_d)
+
+    if show_schools and gdf_schools is not None:
+        fg_s = folium.FeatureGroup(name=("Écoles" if lang == "Français" else "المدارس")).add_to(m)
+        for _, row in gdf_schools.iterrows():
+            if row.geometry is None:
+                continue
+            folium.CircleMarker(
+                location=[row.geometry.y, row.geometry.x],
+                radius=6,
+                color="#1f77b4",
+                fill=True,
+                fill_opacity=0.85,
+                tooltip=row.get("Nom_Etabli", row.get("Nom", "École")),
+            ).add_to(fg_s)
+
+    if show_roads and gdf_roads is not None:
+        fg_r = folium.FeatureGroup(name=("Routes" if lang == "Français" else "الطرق")).add_to(m)
+        folium.GeoJson(
+            gdf_roads.__geo_interface__,
+            style_function=lambda feat: {"color": "#444444", "weight": 2},
+            name=("Routes" if lang == "Français" else "الطرق"),
+        ).add_to(fg_r)
 
     folium.LayerControl(position="topright", collapsed=False).add_to(m)
-
     return m
 
-# ---------------------------
-# Layout: chart + map
-# ---------------------------
-col_chart, col_map = st.columns([2, 2])
 
 with col_map:
-    m = create_map(gdf_social)
-    st_folium(m, width="100%", height=620)
+    m = create_map()
+    map_out = st_folium(m, width="100%", height=620)
 
-# ---------------------------
-# Chart with same colors + mean lines
-# ---------------------------
+# Optional: click selection by map click location -> find commune
+selected_commune_name = None
+if map_out and map_out.get("last_clicked"):
+    lat = map_out["last_clicked"]["lat"]
+    lon = map_out["last_clicked"]["lng"]
+    pt = Point(lon, lat)
+    hit = gdf_social[gdf_social.geometry.contains(pt)]
+    if not hit.empty:
+        selected_commune_name = hit.iloc[0].get("commune_fr", None)
+
+# ============================================================
+# CHART: same colors as map + ONLY active mean line
+# ============================================================
 with col_chart:
-    # Prepare dataframe for chart
     chart_df = gdf_social.copy()
     if "commune_fr" not in chart_df.columns:
         chart_df["commune_fr"] = chart_df.index.astype(str)
     if "commune_ar" not in chart_df.columns:
         chart_df["commune_ar"] = chart_df.index.astype(str)
 
-    chart_df = chart_df[
-        ["commune_fr", "commune_ar", selected_code, "__color__"]
-    ].dropna(subset=[selected_code])
-
-    # Order communes by value (biggest to smallest)
+    chart_df = chart_df[["commune_fr", "commune_ar", selected_code, "__color__"]].dropna(subset=[selected_code])
     chart_df = chart_df.sort_values(by=selected_code, ascending=False)
 
-    # Averages from moyen_indices.xlsx
-    moy_nat = moy_reg = moy_pro = None
-    if selected_code in moy_df.index:
-        row_moy = moy_df.loc[selected_code]
-        moy_nat = row_moy.get("moy_nat", None)
-        moy_reg = row_moy.get("moy_reg", None)
-        moy_pro = row_moy.get("moy_pro", None)
-
-    # Choose x field depending on language
     if lang == "Français":
-        x_field = "commune_fr"
-        x_title = "Communes territoriales"
-        y_title = "Pourcentage"
+        x_field, x_title, y_title = "commune_fr", "Communes territoriales", "Pourcentage"
     else:
-        x_field = "commune_ar"
-        x_title = "الجماعات الترابية"
-        y_title = "النسبة المئوية"
+        x_field, x_title, y_title = "commune_ar", "الجماعات الترابية", "النسبة المئوية"
 
-    # Base bars
     bars = (
         alt.Chart(chart_df)
         .mark_bar()
         .encode(
-            x=alt.X(
-                f"{x_field}:N",
-                title=x_title,
-                sort=alt.SortField(field=selected_code, order="descending"),
-            ),
+            x=alt.X(f"{x_field}:N", title=x_title, sort=alt.SortField(field=selected_code, order="descending")),
             y=alt.Y(f"{selected_code}:Q", title=y_title),
             color=alt.Color("__color__:N", scale=None, legend=None),
             tooltip=[x_field, selected_code],
         )
-        .properties(width="container", height=400)
+        .properties(width="container", height=420)
     )
 
-    # Text labels on bars
-    text_labels = (
+    # value labels
+    labels = (
         alt.Chart(chart_df)
-        .mark_text(
-            align="center",
-            baseline="bottom",
-            dy=-3,
-            color="black",
-            fontSize=11,
-        )
+        .mark_text(align="center", baseline="bottom", dy=-3, color="black", fontSize=11)
         .encode(
-            x=alt.X(
-                f"{x_field}:N",
-                sort=alt.SortField(field=selected_code, order="descending"),
-            ),
+            x=alt.X(f"{x_field}:N", sort=alt.SortField(field=selected_code, order="descending")),
             y=alt.Y(f"{selected_code}:Q"),
             text=alt.Text(f"{selected_code}:Q", format=".1f"),
         )
     )
 
-    layers = [bars, text_labels]
+    layers = [bars, labels]
 
-    # National mean line (orange)
-    if moy_nat is not None and not pd.isna(moy_nat):
+    # Active mean only
+    key, mean_val, mean_color = active_mean
+    if mean_val is not None and not pd.isna(mean_val):
         if lang == "Français":
-            nat_df = pd.DataFrame({"y": [moy_nat], "label": [f"Moyenne nationale: {moy_nat}"]})
+            mean_label = {
+                "pro": f"Moyenne provinciale: {mean_val}",
+                "reg": f"Moyenne régionale: {mean_val}",
+                "nat": f"Moyenne nationale: {mean_val}",
+            }[key]
         else:
-            nat_df = pd.DataFrame({"y": [moy_nat], "label": [f"المتوسط الوطني: {moy_nat}"]})
+            mean_label = {
+                "pro": f"المتوسط الإقليمي: {mean_val}",
+                "reg": f"المتوسط الجهوي: {mean_val}",
+                "nat": f"المتوسط الوطني: {mean_val}",
+            }[key]
 
-        nat_line = (
-            alt.Chart(nat_df)
-            .mark_rule(color="orange", strokeWidth=3, strokeDash=[5, 5])
-            .encode(y="y:Q")
-        )
+        mean_df = pd.DataFrame({"y": [mean_val], "label": [mean_label]})
 
-        nat_text = (
-            alt.Chart(nat_df)
-            .mark_text(
-                align="left",
-                dx=140,
-                dy=-8,
-                color="orange",
-                fontWeight="bold",
-                fontSize=12,
-            )
+        mean_line = alt.Chart(mean_df).mark_rule(color=mean_color, strokeWidth=3, strokeDash=[5, 5]).encode(y="y:Q")
+        mean_text = (
+            alt.Chart(mean_df)
+            .mark_text(align="left", dx=120, dy=-8, color=mean_color, fontWeight="bold", fontSize=12)
             .encode(y="y:Q", text="label:N")
         )
-        layers.extend([nat_line, nat_text])
+        layers.extend([mean_line, mean_text])
 
-    # Regional mean line (red)
-    if moy_reg is not None and not pd.isna(moy_reg):
-        if lang == "Français":
-            reg_df = pd.DataFrame({"y": [moy_reg], "label": [f"Moyenne régionale: {moy_reg}"]})
-        else:
-            reg_df = pd.DataFrame({"y": [moy_reg], "label": [f"المتوسط الجهوي: {moy_reg}"]})
-
-        reg_line = (
-            alt.Chart(reg_df)
-            .mark_rule(color="red", strokeWidth=3, strokeDash=[5, 5])
-            .encode(y="y:Q")
-        )
-
-        reg_text = (
-            alt.Chart(reg_df)
-            .mark_text(
-                align="left",
-                dx=120,
-                dy=-8,
-                color="red",
-                fontWeight="bold",
-                fontSize=12,
+    # Optional: if a commune was clicked on map, emphasize it in chart (simple highlight)
+    if selected_commune_name and "commune_fr" in chart_df.columns:
+        sel = chart_df[chart_df["commune_fr"] == selected_commune_name]
+        if not sel.empty:
+            highlight = (
+                alt.Chart(sel)
+                .mark_bar(stroke="black", strokeWidth=2)
+                .encode(
+                    x=alt.X(f"{x_field}:N", sort=alt.SortField(field=selected_code, order="descending")),
+                    y=alt.Y(f"{selected_code}:Q"),
+                    color=alt.value("#ffffff00"),
+                )
             )
-            .encode(y="y:Q", text="label:N")
-        )
-        layers.extend([reg_line, reg_text])
+            layers.append(highlight)
 
-    # Provincial mean line (green)
-    if moy_pro is not None and not pd.isna(moy_pro):
-        if lang == "Français":
-            pro_df = pd.DataFrame({"y": [moy_pro], "label": [f"Moyenne provinciale: {moy_pro}"]})
-        else:
-            pro_df = pd.DataFrame({"y": [moy_pro], "label": [f"المتوسط الإقليمي: {moy_pro}"]})
-
-        pro_line = (
-            alt.Chart(pro_df)
-            .mark_rule(color="green", strokeWidth=3, strokeDash=[5, 5])
-            .encode(y="y:Q")
-        )
-
-        pro_text = (
-            alt.Chart(pro_df)
-            .mark_text(
-                align="left",
-                dx=100,
-                dy=-8,
-                color="green",
-                fontWeight="bold",
-                fontSize=12,
-            )
-            .encode(y="y:Q", text="label:N")
-        )
-        layers.extend([pro_line, pro_text])
-
-    # Title + padding
     final_chart = (
         alt.layer(*layers)
         .resolve_scale(color="independent")
         .properties(
-            padding={"left": 20, "top": 10, "right": 20, "bottom": 10},
-            title=alt.Title(
-                text=selected_label,
-                anchor="middle",
-                fontSize=16,
-                fontWeight="bold",
-                color="grey",
-            ),
+            padding={"left": 20, "top": 25, "right": 20, "bottom": 10},
+            title=alt.Title(text=selected_label, anchor="middle", fontSize=16, fontWeight="bold", color="grey"),
             background="white",
             height=620,
             width="container",
         )
         .configure_view(fill="white")
         .configure_axis(labelColor="black", titleColor="black")
-        .configure_title(offset=50)
+        .configure_title(offset=60)
     )
 
     st.altair_chart(final_chart, use_container_width=True)
+
+    if selected_commune_name:
+        st.caption(f"Sélection carte: {selected_commune_name}")
