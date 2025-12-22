@@ -130,7 +130,10 @@ div[role="radiogroup"] > label:hover {
     unsafe_allow_html=True,
 )
 
-col_top1, col_top2 = st.columns([1, 2])
+col_top1, col_top2,col_top3 = st.columns([2, 2, 1])
+
+
+
 
 with col_top1:
     lang = st.radio(
@@ -163,6 +166,7 @@ with col_top2:
                 
     )
        
+
 
 st.markdown("---")
 
@@ -208,14 +212,10 @@ if lang!= "Français":
         groups = codes_df["group_ar"].fillna("Autres").unique().tolist()
     else:
         groups = ["Tous"]
-# ============================================================
-# MAIN LAYOUT: left chart / center map / right controls
-# ============================================================
-col_chart, col_map, col_ctrl = st.columns([2, 2, 1])
-
-with col_ctrl:
+        
+with col_top3:
     if lang == "Français": 
-        st.subheader("Contrôles")
+        # st.subheader("Contrôles")
     
         if has_group:
             chosen_group = st.radio(
@@ -233,31 +233,84 @@ with col_ctrl:
             horizontal=True,
             key="groupe_indices",)
     # chosen_group = st.selectbox("Groupe", options=groups, index=0)
-    group_codes = codes_df.loc[codes_df["group"].fillna("Autres") == chosen_group, "code"].tolist()
+    group_col = "group" if lang == "Français" else ("group_ar" if has_group_ar else "group")
+    group_codes = codes_df.loc[codes_df[group_col].fillna("Autres") == chosen_group, "code"].tolist()
     group_codes = [c for c in group_codes if c in available_codes]
     if not group_codes:
         group_codes = available_codes
-    else:
-        chosen_group = "Tous"
-        group_codes = available_codes
+   
+# ============================================================
+# MAIN LAYOUT: left chart / center map / right controls
+# ============================================================
+col_chart, col_map, col_ctrl = st.columns([2, 2, 1])
 
-    # searchable indicator selectbox
-    display_options = [build_display_label(code) for code in group_codes]
+with col_ctrl:
+
+    def render_code_buttons(group_codes, lang, key_prefix="ind_btn", n_cols=2):
+        """
+        Returns selected_code (str) using a grid of buttons.
+        Persists selection in st.session_state[f"{key_prefix}_selected"].
+        """
+        state_key = f"{key_prefix}_selected"
+
+        # Ensure an initial selection
+        if state_key not in st.session_state or st.session_state[state_key] not in group_codes:
+            st.session_state[state_key] = group_codes[0] if group_codes else None
+
+        # Prepare labels
+        items = []
+        for code in group_codes:
+            label = build_display_label(code)
+            # keep only the "alias" part shown on button if you want:
+            # e.g. "002 — Activité..." -> "Activité..."
+            if "—" in label:
+                short = label.split("—", 1)[1].strip()
+            else:
+                short = label
+            items.append((code, short))
+
+        # Grid
+        cols = st.columns(n_cols)
+        for i, (code, short_label) in enumerate(items):
+            c = cols[i % n_cols]
+
+            # Visual hint for selected item (simple)
+            is_selected = (code == st.session_state[state_key])
+            btn_label = f"✅ {short_label}" if is_selected else short_label
+
+            if c.button(btn_label, key=f"{key_prefix}_{code}", use_container_width=True):
+                st.session_state[state_key] = code
+
+        return st.session_state[state_key]
+
+
+    # indicator buttons instead of selectbox
     if lang == "Français":
-        selected_display = st.selectbox("Indicateur", options=display_options)
-    else: selected_display = st.selectbox("المؤشر", options=display_options)
-    selected_code = selected_display.split(" — ")[0].strip()
+        st.markdown("### Indicateurs")
+    else:
+        st.markdown("### المؤشرات")
+
+    # Use 2 or 3 columns depending on how many buttons you want per row
+    selected_code = render_code_buttons(
+        group_codes=group_codes,
+        lang=lang,
+        key_prefix="social_indicator",
+        n_cols=2,   # set 3 if you want more compact grid
+    )
+
 
     # label full (for chart title)
     row_sel = codes_df.loc[codes_df["code"] == selected_code]
     selected_label = row_sel.iloc[0].get(label_col, selected_code) if not row_sel.empty else selected_code
+col_zoom,col_coche = st.columns([2, 2])
 
-    if lang == "Français": 
+if lang == "Français": 
+    with col_coche:
         st.markdown("### Couches")
         show_douars = st.checkbox("Douars", value=True)
         show_schools = st.checkbox("Écoles", value=False, disabled=(gdf_schools is None))
         show_roads = st.checkbox("Routes", value=False, disabled=(gdf_roads is None))
-
+    with col_zoom:
         st.markdown("### Options")
         if mode == "Indice Régional":
             zoom = st.slider("Zoom initial", min_value=5, max_value=14, value=7)
@@ -266,7 +319,8 @@ with col_ctrl:
         else:
             zoom = st.slider("Zoom initial", min_value=5, max_value=14, value=9)
 
-    else : 
+else : 
+    with col_zoom:
         st.markdown("### الطبقات")
         show_douars = st.checkbox("الدواوير", value=True)
         show_schools = st.checkbox("المدارس", value=False, disabled=(gdf_schools is None))
