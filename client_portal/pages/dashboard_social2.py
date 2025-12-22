@@ -307,7 +307,7 @@ col_zoom,col_coche = st.columns([2, 2])
 if lang == "Français": 
     with col_coche:
         st.markdown("### Couches")
-        show_douars = st.checkbox("Douars", value=True)
+        show_douars = st.checkbox("Douars", value=False, disabled=(gdf_douars is None))
         show_schools = st.checkbox("Écoles", value=False, disabled=(gdf_schools is None))
         show_roads = st.checkbox("Routes", value=False, disabled=(gdf_roads is None))
     with col_zoom:
@@ -322,7 +322,7 @@ if lang == "Français":
 else : 
     with col_zoom:
         st.markdown("### الطبقات")
-        show_douars = st.checkbox("الدواوير", value=True)
+        show_douars = st.checkbox("الدواوير", value=False,disabled=(gdf_douars is None))
         show_schools = st.checkbox("المدارس", value=False, disabled=(gdf_schools is None))
         show_roads = st.checkbox("الطرق", value=False, disabled=(gdf_roads is None))
 
