@@ -120,8 +120,8 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     settings = st.Page("pages/settings.py", title="Paramètres",icon="⚙️")
     nav = st.navigation({
         
-        "Client Portal": [Home],
-        "Dashboard": [dashboard1,dashboard_bv,dashboard_route,dashboard_educ,dashboard_social],
+        "Plateforme d'aide à la décision": [Home],
+        "Client INDH": [dashboard1,dashboard_bv,dashboard_route,dashboard_educ,dashboard_social],
         "Pachalik": [Benteib],
         "Indices sociaux-éconmiques": [dashboard_social2],
         "Requêtes": [explore,search],
