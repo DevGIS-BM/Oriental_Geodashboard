@@ -113,7 +113,9 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     dashboard_educ = st.Page("pages/dashboard_educ.py", title="Education",icon="🏫")
     dashboard_social = st.Page("pages/dashboard_social.py", title="Indices démographiques",icon="👥")
     Benteib = st.Page("pages/benteib.py", title="Ben Teib")
-    dashboard_social2 = st.Page("pages/dashboard_social2.py", title="Indices sociaux",icon="👥")
+    dashboard_social1 = st.Page("pages/dashboard_social1.py", title="Pauvreté MD",icon="👥")
+    dashboard_social2 = st.Page("pages/dashboard_social2.py", title="Environnement",icon="👥")
+    dashboard_social3 = st.Page("pages/dashboard_social3.py", title="Autres indicateurs",icon="👥")
     Midar = st.Page("pages/midar.py", title="Midar")
     explore =st.Page("pages/explore.py", title="Explorer",icon="📊")
     search = st.Page("pages/search.py", title="Rechecher",icon="🔍")
@@ -123,7 +125,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
         "Plateforme d'aide à la décision": [Home],
         "Client INDH": [dashboard1,dashboard_bv,dashboard_route,dashboard_educ,dashboard_social],
         "Pachalik": [Benteib],
-        "Indices sociaux-éconmiques": [dashboard_social2],
+        "Indices HCP": [dashboard_social1,dashboard_social2,dashboard_social3],
         "Requêtes": [explore,search],
         "Outils": [settings],
 

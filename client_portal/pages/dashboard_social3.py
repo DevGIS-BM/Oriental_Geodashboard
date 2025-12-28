@@ -101,7 +101,7 @@ if nat_file.exists():
 # Codes → labels (FR / AR) + direction + group + alias
 # ---------------------------
 codes_df = pd.read_excel(xls_path / "social_codes.xlsx", dtype={"code": str})
-codes_df = codes_df[codes_df['category'] == 'HCP : ENVIRONNEMENT']
+codes_df = codes_df[codes_df['category'] == 'HCP : Autres_Indicateurs']
 codes_df["code"] = codes_df["code"].str.zfill(2)
 
 # Means (national, regional, provincial)

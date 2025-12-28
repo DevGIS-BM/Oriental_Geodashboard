@@ -101,8 +101,10 @@ if nat_file.exists():
 # Codes → labels (FR / AR) + direction + group + alias
 # ---------------------------
 codes_df = pd.read_excel(xls_path / "social_codes.xlsx", dtype={"code": str})
-codes_df = codes_df[codes_df['category'] == 'HCP : ENVIRONNEMENT']
+codes_df = codes_df[codes_df['category'] == 'HCP : pauvreté MD']
 codes_df["code"] = codes_df["code"].str.zfill(2)
+
+
 
 # Means (national, regional, provincial)
 moy_df = pd.read_excel(xls_path / "moyen_indices.xlsx", dtype={"code": str})
@@ -187,6 +189,7 @@ all_codes = codes_df["code"].tolist()
 available_codes = [c for c in all_codes if c in gdf_social.columns]
 if not available_codes:
     st.error("Aucun code d'indice trouvé dans ct_driouch.geojson.")
+    st.write(all_codes)
     st.stop()
 
 # Create a label for each code
@@ -203,7 +206,6 @@ def build_display_label(code: str) -> str:
     return f"{code} — {sig_short}"
 
 # Group -> list of codes
-
 if has_group:
     groups = codes_df["group"].fillna("Autres").unique().tolist()
 else:
