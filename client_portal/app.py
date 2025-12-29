@@ -74,7 +74,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
    
     # Sidebar for greeting and logout
     with st.sidebar:
-        st.title(f" Bienvenue!!,  {st.session_state['username']}")
+        st.title(f" Binevenue à vous:,  {st.session_state['username']}")
         if st.button("Logout"):
             for key in ["auth", "username", "role", "just_logged_in"]:
                 st.session_state["auth"] = False
