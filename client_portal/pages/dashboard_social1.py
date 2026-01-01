@@ -18,6 +18,7 @@ from shapely.geometry import Point
 # ============================================================
 REGION_GEOJSON = "region_oriental.geojson"     # <-- CHANGE to your real file
 NATIONAL_GEOJSON = "maroc.geojson"             # <-- CHANGE to your real file
+PROVINCIAL_GEOJSON = "province1.geojson"             # <-- CHANGE to your real file
 
 SCHOOLS_GEOJSON = "ecoles_driouch.geojson"     # optional layer
 ROADS_GEOJSON = "routes_driouch.geojson"       # optional layer
@@ -81,7 +82,7 @@ if roads_file.exists():
     gdf_roads = st.session_state["gdf_roads"]
 
 # ---------------------------
-# Optional: region / national polygons
+# Optional: region / national polygons 
 # ---------------------------
 gdf_region = None
 reg_file = geo_path / REGION_GEOJSON
@@ -96,6 +97,14 @@ if nat_file.exists():
     gdf_national = gpd.read_file(nat_file)
     if gdf_national.crs is not None and gdf_national.crs.to_epsg() != 4326:
         gdf_national = gdf_national.to_crs(epsg=4326)
+
+gdf_prv = None
+prv_file = geo_path / PROVINCIAL_GEOJSON
+if prv_file.exists():
+    gdf_prv = gpd.read_file(prv_file)
+    if gdf_prv.crs is not None and gdf_prv.crs.to_epsg() != 4326:
+        gdf_prv = gdf_prv.to_crs(epsg=4326)
+
 
 # ---------------------------
 # Codes → labels (FR / AR) + direction + group + alias
@@ -361,7 +370,22 @@ vmax = float(metric_series_nonnull.max())
 
 # up => big values should be green => use RdYlGn (low red, high green)
 # down => big values should be red => use reversed
-base_cmap = cm.get_cmap("RdYlGn") if direction_value == "up" else cm.get_cmap("RdYlGn_r")
+# ------------------------------------------------------------
+# Optional: override colormap for specific indicator codes
+# ------------------------------------------------------------
+CUSTOM_CMAPS = {
+    "05": "autumn",   # exemple
+    "19": "autumn",    # exemple
+}
+# IMPORTANT: votre code est zfill(2), donc "20" et "25" ici
+cmap_name = CUSTOM_CMAPS.get(selected_code, None)
+
+if cmap_name:
+    base_cmap = cm.get_cmap(cmap_name if direction_value == "up" else f"{cmap_name}_r")
+else:
+    base_cmap = cm.get_cmap("RdYlGn") if direction_value == "up" else cm.get_cmap("RdYlGn_r")
+
+# base_cmap = cm.get_cmap("RdYlGn") if direction_value == "up" else cm.get_cmap("RdYlGn_r")
 norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
 def val_to_color(val):
@@ -396,28 +420,36 @@ if selected_code in moy_df.index:
 
 
 
-if mode == "Indice Provincial":
-    key, mean_val = "pro", moy_pro
-elif mode == "Indice Régional":
-    key, mean_val = "reg", moy_reg
-else:
-    key, mean_val = "nat", moy_nat
-
+# if mode == "Indice Provincial":
+#     key, mean_val = "pro", moy_pro
+# elif mode == "Indice Régional":
+#     key, mean_val = "reg", moy_reg
+# else:
+#     key, mean_val = "nat", moy_nat
+    
+key1, mean_val1 = "pro", moy_pro
+key2, mean_val2 = "reg", moy_reg
+key3, mean_val3 = "nat", moy_nat
 # mean_color = val_to_color(mean_val) if mean_val is not None and not pd.isna(mean_val) else "#666666"
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
-
-mean_color = (
-    val_to_color(clamp(float(mean_val), vmin, vmax))
-    if mean_val is not None and not pd.isna(mean_val)
-    else "#666666"
-)
-
-
-active_mean = (key, mean_val, mean_color)
+def colors(mean_val):
+    mean_color = (
+        val_to_color(clamp(float(mean_val), vmin, vmax))
+        if mean_val is not None and not pd.isna(mean_val)
+        else "#666666"
+    )
+    return mean_color
 
 
+mean_color1=colors(mean_val1)
+mean_color2=colors(mean_val2)
+mean_color3=colors(mean_val3)
+
+active_mean1 = (key1, mean_val1, mean_color1)
+active_mean2 = (key2, mean_val2, mean_color2)
+active_mean3 = (key3, mean_val3, mean_color3)
 
 
 def create_map():
@@ -453,13 +485,13 @@ def create_map():
         ).add_to(m)
     elif (mode == "Indice Régional"):
             fg_bg = folium.FeatureGroup(
-            name=("Les régions" if (lang == "Français") else  "الجهات"),
+            name=("Région" if (lang == "Français") else  "الجهة"),
             overlay=True,
             control=True,
             show=True,
         ).add_to(m)
     
-    def add_background_reference(gdf_bg, value, layer_name, tooltip_name_fields=None):
+    def add_background_reference(mean_color,gdf_bg, value, layer_name, tooltip_name_fields=None):
         """
         Draw a background polygon below communes:
         - inject selected_code=value so we can color it with the SAME gradient
@@ -509,9 +541,75 @@ def create_map():
             tooltip=tooltip,
         ).add_to(fg_bg)
 
+
+
+
+    def add_provincial_reference_layer(gdf_bg, mean_val, mean_color, layer_name, tooltip_name_fields=None):
+        """
+        Adds provincial reference layer (gdf_prv) in Regional/National modes.
+        Uses the SAME injected selected_code = moy_pro (mean_val).
+        """
+        if gdf_bg is None or getattr(gdf_bg, "empty", True) or mean_val is None or pd.isna(mean_val):
+            return
+
+        bg = gdf_bg.copy()
+        bg[selected_code] = float(mean_val)
+
+        def style_fn(feat):
+            v = feat["properties"].get(selected_code)
+            return {
+                "fillColor": val_to_color(v),   # same palette
+                "color": mean_color,            # provincial mean color
+                "weight": 3,
+                "fillOpacity": 0.80,            # plus discret que le fond principal
+            }
+
+        fields, aliases = [], []
+        if tooltip_name_fields:
+            for f, a_fr, a_ar in tooltip_name_fields:
+                if f in bg.columns:
+                    fields.append(f)
+                    aliases.append(a_fr if lang == "Français" else a_ar)
+
+        fields.append(selected_code)
+        aliases.append(("Moyenne provinciale" if lang == "Français" else "المتوسط الإقليمي"))
+
+        tooltip = GeoJsonTooltip(
+            fields=fields,
+            aliases=aliases,
+            localize=True,
+            sticky=False,
+            labels=True,
+            max_width=500,
+            style="background-color:#F0EFEF;border:2px solid black;border-radius:3px;",
+        )
+
+        folium.GeoJson(
+            bg.__geo_interface__,
+            name=layer_name,
+            style_function=style_fn,
+            tooltip=tooltip,
+        ).add_to(m)  # couche au niveau global (au-dessus du fond, sous les communes si ajoutée avant choropleth)
+
+    # ------------------------------------------------------------
+    # Add provincial reference layer (gdf_prv) in Regional/National
+    # using active_mean1 = (pro, moy_pro, mean_color1)
+    # ------------------------------------------------------------
+    if mode in ("Indice Régional", "Indice National"):
+        add_provincial_reference_layer(
+            gdf_prv,
+            mean_val1,        # moy_pro
+            mean_color1,      # color computed from palette for moy_pro
+            layer_name=("Province" if lang == "Français" else "الإقليم"),
+            tooltip_name_fields=[
+                ("province_f", "Province", "الإقليم"),
+                ("nom_prov", "Province", "الإقليم"),  # si existe dans gdf_prv
+            ],
+        )
     # Add ONLY the requested background depending on mode
     if mode == "Indice Régional":
         add_background_reference(
+            mean_color2,
             gdf_region,
             moy_reg,
             layer_name=("Région (référence)" if lang == "Français" else "الجهة (مرجع)"),
@@ -523,6 +621,7 @@ def create_map():
 
     elif mode == "Indice National":
         add_background_reference(
+            mean_color3,
             gdf_national,
             moy_nat,
             layer_name=("Maroc (référence)" if lang == "Français" else "المغرب (مرجع)"),
@@ -530,6 +629,9 @@ def create_map():
                 ("nom_region", "Nom", "الاسم"),
             ],
         )
+
+
+
 
     # ------------------------------------------------------------
     # B) Communes choropleth (ALWAYS ON TOP OF background)
@@ -696,30 +798,31 @@ with col_chart:
     layers = [bars, labels]
 
     # Active mean only
-    key, mean_val, mean_color = active_mean
-    if mean_val is not None and not pd.isna(mean_val):
-        if lang == "Français":
-            mean_label = {
-                "pro": f"Moyenne provinciale: {mean_val}",
-                "reg": f"Moyenne régionale: {mean_val}",
-                "nat": f"Moyenne nationale: {mean_val}",
-            }[key]
-        else:
-            mean_label = {
-                "pro": f"المتوسط الإقليمي: {mean_val}",
-                "reg": f"المتوسط الجهوي: {mean_val}",
-                "nat": f"المتوسط الوطني: {mean_val}",
-            }[key]
+    for m in (active_mean1,active_mean2,active_mean3):
+        key, mean_val, mean_color = m
+        if mean_val is not None and not pd.isna(mean_val):
+            if lang == "Français":
+                mean_label = {
+                    "pro": f"Moyenne provinciale: {mean_val}",
+                    "reg": f"Moyenne régionale: {mean_val}",
+                    "nat": f"Moyenne nationale: {mean_val}",
+                }[key]
+            else:
+                mean_label = {
+                    "pro": f"المتوسط الإقليمي: {mean_val}",
+                    "reg": f"المتوسط الجهوي: {mean_val}",
+                    "nat": f"المتوسط الوطني: {mean_val}",
+                }[key]
 
-        mean_df = pd.DataFrame({"y": [mean_val], "label": [mean_label]})
+            mean_df = pd.DataFrame({"y": [mean_val], "label": [mean_label]})
 
-        mean_line = alt.Chart(mean_df).mark_rule(color=mean_color, strokeWidth=3, strokeDash=[5, 5]).encode(y="y:Q")
-        mean_text = (
-            alt.Chart(mean_df)
-            .mark_text(align="left", dx=120, dy=-8, color=mean_color, fontWeight="bold", fontSize=12)
-            .encode(y="y:Q", text="label:N")
-        )
-        layers.extend([mean_line, mean_text])
+            mean_line = alt.Chart(mean_df).mark_rule(color=mean_color, strokeWidth=3, strokeDash=[5, 5]).encode(y="y:Q")
+            mean_text = (
+                alt.Chart(mean_df)
+                .mark_text(align="left", dx=120, dy=-8, color=mean_color, fontWeight="bold", fontSize=12)
+                .encode(y="y:Q", text="label:N")
+            )
+            layers.extend([mean_line, mean_text])
 
     # Optional: if a commune was clicked on map, emphasize it in chart (simple highlight)
     if selected_commune_name and "commune_fr" in chart_df.columns:
