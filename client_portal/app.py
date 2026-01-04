@@ -121,20 +121,7 @@ if st.session_state["auth"] and st.session_state["username"] and st.session_stat
     search = st.Page("pages/search.py", title="Rechecher")
     settings = st.Page("pages/settings.py", title="Paramètres")
     
-    # Home = st.Page("pages/home.py", title="Home", icon="🖥️")
-    # dashboard1 = st.Page("pages/dashboard1.py", title="Général",icon="🗺️")
-    # dashboard_bv = st.Page("pages/dashboard_bv.py", title="Bureaux de vote",icon="🗳️")
-    # dashboard_route = st.Page("pages/dashboard_routes.py", title="Résau routier",icon="🚗")
-    # dashboard_educ = st.Page("pages/dashboard_educ.py", title="Education",icon="🏫")
-    # dashboard_social = st.Page("pages/dashboard_social.py", title="Indices démographiques",icon="👥")
-    # Benteib = st.Page("pages/benteib.py", title="Ben Teib")
-    # dashboard_social1 = st.Page("pages/dashboard_social1.py", title="Pauvreté MD",icon="👥")
-    # dashboard_social2 = st.Page("pages/dashboard_social2.py", title="Environnement",icon="👥")
-    # dashboard_social3 = st.Page("pages/dashboard_social3.py", title="Autres indicateurs",icon="👥")
-    # Midar = st.Page("pages/midar.py", title="Midar")
-    # explore =st.Page("pages/explore.py", title="Explorer",icon="📊")
-    # search = st.Page("pages/search.py", title="Rechecher",icon="🔍")
-    # settings = st.Page("pages/settings.py", title="Paramètres",icon="⚙️")
+
     nav = st.navigation({
         
         "Plateforme d'aide à la décision": [Home],

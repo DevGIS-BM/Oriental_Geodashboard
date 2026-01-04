@@ -412,25 +412,57 @@ def prepare_reference_gdf(gdf_ref, value):
     return gdf2
 
 
+
+def normalize_hex_color(c):
+    if c is None or (isinstance(c, float) and pd.isna(c)):
+        return None
+    c = str(c).strip()
+    if not c:
+        return None
+    if not c.startswith("#"):
+        c = "#" + c
+    # accept #RGB or #RRGGBB
+    if len(c) == 4:
+        ok = all(ch in "0123456789abcdefABCDEF" for ch in c[1:])
+        return c if ok else None
+    if len(c) == 7:
+        ok = all(ch in "0123456789abcdefABCDEF" for ch in c[1:])
+        return c if ok else None
+    return None
+
+
+def colors_ref(level_key: str, row_moy) -> str:
+    """
+    level_key: 'pro' | 'reg' | 'nat'
+    row_moy: pandas Series from moy_df.loc[selected_code]
+    Returns hex color from Excel columns: c_moy_pro / c_moy_reg / c_moy_nat
+    """
+    col_map = {"pro": "c_moy_pro", "reg": "c_moy_reg", "nat": "c_moy_nat"}
+    col = col_map.get(level_key)
+
+    if row_moy is None or col is None:
+        return "#666666"
+
+    return normalize_hex_color(row_moy.get(col, None)) or "#666666"
+
 if selected_code in moy_df.index:
     row_moy = moy_df.loc[selected_code]
     moy_nat = row_moy.get("moy_nat", None)
     moy_reg = row_moy.get("moy_reg", None)
     moy_pro = row_moy.get("moy_pro", None)
+else:
+    row_moy = None
+    moy_nat = moy_reg = moy_pro = None
 
 
+key1, mean_val1, mean_color1 = "pro", moy_pro, colors_ref("pro", row_moy)
+key2, mean_val2, mean_color2 = "reg", moy_reg, colors_ref("reg", row_moy)
+key3, mean_val3, mean_color3 = "nat", moy_nat, colors_ref("nat", row_moy)
 
-# if mode == "Indice Provincial":
-#     key, mean_val = "pro", moy_pro
-# elif mode == "Indice Régional":
-#     key, mean_val = "reg", moy_reg
-# else:
-#     key, mean_val = "nat", moy_nat
-    
-key1, mean_val1 = "pro", moy_pro
-key2, mean_val2 = "reg", moy_reg
-key3, mean_val3 = "nat", moy_nat
-# mean_color = val_to_color(mean_val) if mean_val is not None and not pd.isna(mean_val) else "#666666"
+active_mean1 = (key1, mean_val1, mean_color1)
+active_mean2 = (key2, mean_val2, mean_color2)
+active_mean3 = (key3, mean_val3, mean_color3)
+
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
@@ -443,13 +475,13 @@ def colors(mean_val):
     return mean_color
 
 
-mean_color1=colors(mean_val1)
-mean_color2=colors(mean_val2)
-mean_color3=colors(mean_val3)
+# mean_color1=colors(mean_val1)
+# mean_color2=colors(mean_val2)
+# mean_color3=colors(mean_val3)
 
-active_mean1 = (key1, mean_val1, mean_color1)
-active_mean2 = (key2, mean_val2, mean_color2)
-active_mean3 = (key3, mean_val3, mean_color3)
+# active_mean1 = (key1, mean_val1, mean_color1)
+# active_mean2 = (key2, mean_val2, mean_color2)
+# active_mean3 = (key3, mean_val3, mean_color3)
 
 
 def create_map():
@@ -506,10 +538,10 @@ def create_map():
         def bg_style_fn(feat):
             v = feat["properties"].get(selected_code)
             return {
-                "fillColor": val_to_color(v),  # same gradient as communes/chart
+                "fillColor": mean_color,  # same gradient as communes/chart
                 "color": mean_color, 
                 "weight": 2,
-                "fillOpacity": 0.8,
+                "fillOpacity": 0.9,
             }
 
         fields, aliases = [], []
@@ -558,10 +590,10 @@ def create_map():
         def style_fn(feat):
             v = feat["properties"].get(selected_code)
             return {
-                "fillColor": val_to_color(v),   # same palette
+                "fillColor": mean_color,   # same palette
                 "color": mean_color,            # provincial mean color
                 "weight": 3,
-                "fillOpacity": 0.80,            # plus discret que le fond principal
+                "fillOpacity": 0.90,            # plus discret que le fond principal
             }
 
         fields, aliases = [], []
